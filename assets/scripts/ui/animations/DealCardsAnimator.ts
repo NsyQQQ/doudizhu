@@ -1,0 +1,97 @@
+/**
+ * 发牌动画
+ */
+
+import { _decorator, Component, Vec3, tween, Prefab, instantiate } from 'cc';
+import { Card } from '../../core/Card';
+import { CardView } from '../CardView';
+import { CardFlipAnimator } from './CardFlipAnimator';
+import { EventBus, GameEvents } from '../../shared/EventBus';
+
+const { ccclass, property } = _decorator;
+
+@ccclass('DealCardsAnimator')
+export class DealCardsAnimator extends Component {
+    @property(Prefab)
+    cardPrefab: Prefab = null!;
+
+    /** 发牌延迟（毫秒） */
+    @property
+    dealDelay: number = 50;
+
+    /** 发完牌后的回调 */
+    private onComplete: (() => void) | null = null;
+
+    /**
+     * 播放发牌动画
+     * @param cards 要发的牌数组
+     * @param delay 每张牌的延迟（毫秒）
+     * @param onComplete 动画完成回调
+     */
+    playDealAnimation(cards: Card[], delay: number, onComplete: () => void): void {
+        this.onComplete = onComplete;
+
+        const centerPos = new Vec3(0, 0, 0);
+        // 三个玩家位置
+        const playerPositions = [
+            new Vec3(0, -300, 0),   // 下方玩家
+            new Vec3(-550, 0, 0),   // 左边玩家
+            new Vec3(550, 0, 0),    // 右边玩家
+        ];
+
+        let dealIndex = 0;
+        const totalCards = cards.length;
+        const playerCardCounts = [0, 0, 0]; // 每个玩家收到的牌数
+
+        const dealOne = () => {
+            if (dealIndex >= totalCards) {
+                // 动画结束
+                if (this.onComplete) {
+                    this.onComplete();
+                }
+                return;
+            }
+
+            const playerIdx = dealIndex % 3;
+            playerCardCounts[playerIdx]++;
+
+            // 创建发牌节点
+            const node = instantiate(this.cardPrefab);
+            node.setParent(this.node);
+            node.setPosition(centerPos);
+            node.setScale(0.2, 0.2, 0.2);
+
+            const cardView = node.getComponent(CardView);
+            if (cardView) {
+                cardView.setBack();  // 显示背面
+            }
+
+            // 动画移动到目标位置，缩放从0.2到1
+            tween(node)
+                .to(0.1, { position: playerPositions[playerIdx], scale: new Vec3(1, 1, 1) })
+                .call(() => {
+                    node.destroy();
+                    dealIndex++;
+                    // 触发发牌事件，通知玩家信息更新手牌数
+                    EventBus.emit(GameEvents.CARD_DEALT, { playerId: playerIdx, count: playerCardCounts[playerIdx] });
+                    setTimeout(dealOne, delay);
+                })
+                .start();
+        };
+
+        dealOne();
+    }
+
+    /**
+     * 播放统一翻牌动画（所有牌同时翻面）
+     * @param cardNodes 要翻转的牌的节点数组
+     * @param cards 对应的牌数据
+     */
+    flipAllCards(cardNodes: Node[], cards: Card[]): void {
+        const flipAnimator = this.node.getComponent(CardFlipAnimator) as CardFlipAnimator | null;
+        if (flipAnimator) {
+            // 使用 CardFlipAnimator 逐张翻转
+            flipAnimator.flipCardsSequentially(cardNodes as any, cards);
+        }
+    }
+}

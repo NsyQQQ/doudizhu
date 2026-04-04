@@ -1,0 +1,10 @@
+{
+  "name": "NsyQQQ",
+  "uuid": "0c111dfd-64f9-431a-8c88-1dd26e0b7022",
+  "creator": {
+    "version": "3.8.6"
+  },
+  "scripts": {
+    "fix": "node fix-config.js"
+  }
+}
