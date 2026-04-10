@@ -4,20 +4,84 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GameRoom = void 0;
-const types_1 = require("./types");
+exports.getPlayerCountByRoomType = getPlayerCountByRoomType;
+exports.getDeckCountByRoomType = getDeckCountByRoomType;
+exports.getCardsPerPlayerByRoomType = getCardsPerPlayerByRoomType;
+exports.getLandlordCardsByRoomType = getLandlordCardsByRoomType;
 const Deck_1 = require("./Deck");
 const GameRules_1 = require("./GameRules");
+const GameRules2_1 = require("./GameRules2");
 const events_1 = require("events");
 const PLAYER_COUNT = 3;
-const CARDS_PER_PLAYER = 17;
-const LANDLORD_CARDS = 3;
+/** 房间类型对应玩家数量 */
+const ROOM_PLAYER_COUNTS = {
+    1: 3,
+    2: 4,
+    3: 6,
+    4: 5,
+    5: 6,
+    6: 7,
+};
+/** 房间类型对应牌组数量（1=单副牌, 3=三副牌） */
+const ROOM_DECK_COUNTS = {
+    1: 1, // 三人斗地主：1副牌
+    2: 1, // 四人斗地主：1副牌
+    3: 3, // 六人斗地主：3副牌
+    4: 1, // 五人斗地主：1副牌
+    5: 3, // 六人斗地主：3副牌
+    6: 1, // 七人斗地主：1副牌
+};
+/** 房间类型对应每人手牌数量 */
+const ROOM_CARDS_PER_PLAYER = {
+    1: 17, // 三人斗地主：17张
+    2: 13, // 四人斗地主：13张
+    3: 25, // 六人斗地主：25张（3副牌162张，6人，剩余12张底牌）
+    4: 11, // 五人斗地主：11张
+    5: 27, // 六人斗地主：27张（3副牌162张，6人平分，无底牌）
+    6: 21, // 七人斗地主：21张（留3张底牌，每人不同）
+};
+/** 房间类型对应底牌数量 */
+const ROOM_LANDLORD_CARDS = {
+    1: 3, // 三人斗地主：3张底牌
+    2: 4, // 四人斗地主：4张底牌
+    3: 12, // 六人斗地主：12张底牌
+    4: 3, // 五人斗地主：3张底牌
+    5: 0, // 六人斗地主：0张底牌（3副牌162张，6人平分）
+    6: 3, // 七人斗地主：3张底牌
+};
+/** 获取房间类型对应的玩家数量 */
+function getPlayerCountByRoomType(roomType) {
+    return ROOM_PLAYER_COUNTS[roomType] || 3;
+}
+/** 获取房间类型对应的牌组数量 */
+function getDeckCountByRoomType(roomType) {
+    return ROOM_DECK_COUNTS[roomType] || 1;
+}
+/** 获取房间类型对应的每人手牌数量 */
+function getCardsPerPlayerByRoomType(roomType) {
+    return ROOM_CARDS_PER_PLAYER[roomType] || 17;
+}
+/** 获取房间类型对应的底牌数量 */
+function getLandlordCardsByRoomType(roomType) {
+    return ROOM_LANDLORD_CARDS[roomType] || 3;
+}
+/** 是否为6人场（需要暗地主选择） */
+function isSixPlayerMode(roomType) {
+    return roomType === 3 || roomType === 5;
+}
+/** AI 玩家名字列表 */
+const AI_NAMES = ['小智', '小红', '小刚', '小明', '小华', '小杰', '小丽', '小强', '小芳', '小军', '小雨', '小燕', '小涛', '小梅', '小兵', '小燕'];
+/** AI 玩家头像 */
+const AI_AVATAR = 'test';
 class GameRoom extends events_1.EventEmitter {
-    constructor(roomCode, roomId) {
+    constructor(roomCode, roomId, roomType = 1) {
         super();
         this.players = [null, null, null];
         this.status = 'waiting';
         this.landlordId = -1;
+        this.hiddenLandlordIds = []; // 暗地主ID数组（6人场有2个暗地主）
         this.landlordCards = [];
+        this.landlordCardId = -1; // 地主选择的代表性地主牌ID
         this.hands = [new GameRules_1.Hand(), new GameRules_1.Hand(), new GameRules_1.Hand()];
         this.currentPlayerId = 0;
         this.lastMove = null;
@@ -27,8 +91,17 @@ class GameRoom extends events_1.EventEmitter {
         this.quickMatchMode = false; // 快速匹配模式，不运行AI
         this.scheduledPlayerId = -1; // 记录当前调度的AI玩家ID（位置索引）
         this.waitingForClientReady = false; // 等待客户端动画播放完成
+        this.turnNotified = false; // 是否已经发送过 turn_changed（防止重复发送）
+        this.firstMoveDone = false; // 是否已完成首轮出牌（用于调整AI延迟）
+        // 6人斗地主已出完牌的计数
+        this.finishedFarmerCount = 0; // 农民方已出完的人数（3人场用）
         this.roomCode = roomCode;
         this.roomId = roomId;
+        this.roomType = roomType;
+        // 根据房间类型初始化玩家数组
+        const playerCount = getPlayerCountByRoomType(roomType);
+        this.players = new Array(playerCount).fill(null);
+        this.hands = Array.from({ length: playerCount }, () => new GameRules_1.Hand());
     }
     /** 设置快速匹配模式 */
     setQuickMatchMode(enabled) {
@@ -36,12 +109,13 @@ class GameRoom extends events_1.EventEmitter {
     }
     /** 添加玩家到房间 */
     addPlayer(player) {
-        for (let i = 0; i < PLAYER_COUNT; i++) {
+        for (let i = 0; i < this.players.length; i++) {
             if (!this.players[i]) {
                 this.players[i] = {
                     ...player,
                     hand: [],
-                    isLandlord: false
+                    isLandlord: false,
+                    isHiddenLandlord: false
                 };
                 return i;
             }
@@ -75,16 +149,33 @@ class GameRoom extends events_1.EventEmitter {
         // 生成唯一的AI ID（使用负数 + 位置，避免时间戳冲突）
         const aiId = -(1000000 + position + Math.floor(Math.random() * 1000));
         // 添加AI
+        // 如果没有提供昵称，随机生成一个（确保不重复）
+        if (!nickname || nickname === 'AI') {
+            // 获取当前已使用的AI名字
+            const usedNames = this.players
+                .filter(p => p && p.isAI && p.nickname)
+                .map(p => p.nickname);
+            // 从未使用的名字中随机选择
+            const availableNames = AI_NAMES.filter(n => !usedNames.includes(n));
+            if (availableNames.length > 0) {
+                nickname = availableNames[Math.floor(Math.random() * availableNames.length)];
+            }
+            else {
+                nickname = `AI${position}`;
+            }
+        }
+        const aiAvatar = AI_AVATAR;
         const aiPlayer = {
             id: aiId,
             openid: `ai_${aiId}`,
             nickname: nickname,
-            avatar: '',
+            avatar: aiAvatar,
             isReady: true, // AI默认准备
             isHost: false,
             isAI: true,
             hand: [],
-            isLandlord: false
+            isLandlord: false,
+            isHiddenLandlord: false
         };
         this.players[position] = aiPlayer;
         return { success: true, position };
@@ -150,43 +241,98 @@ class GameRoom extends events_1.EventEmitter {
             return false;
         }
         this.status = 'dealing';
+        this.turnNotified = false; // 重置回合通知标志
+        this.firstMoveDone = false; // 重置首轮标志
         this.emit('game_start');
         this.dealCards();
         return true;
     }
+    /** 重开游戏（游戏结束后再来一局） */
+    restartGame() {
+        // 只允许在游戏结束后重开
+        if (this.status !== 'ended' && this.status !== 'playing') {
+            console.log(`[restartGame] Cannot restart, status=${this.status}`);
+            return false;
+        }
+        console.log(`[restartGame] Restarting game, current status=${this.status}`);
+        // 重置游戏状态
+        this.status = 'dealing';
+        this.turnNotified = false;
+        this.firstMoveDone = false;
+        this.lastMove = null;
+        this.passedPlayers.clear();
+        this.currentPlayerId = this.landlordId; // 从地主开始
+        // 重置玩家手牌为新的空Hand实例
+        this.hands = Array.from({ length: this.players.length }, () => new GameRules_1.Hand());
+        // 等待客户端准备就绪（必须在地主选牌之前收到clientReady）
+        this.waitingForClientReady = true;
+        // 重新发牌（dealCards内部会发送game_dealt和landlord_selected事件）
+        this.dealCards();
+        console.log(`[restartGame] Game restarted, landlordId=${this.landlordId}, currentPlayerId=${this.currentPlayerId}`);
+        return true;
+    }
     /** 发牌 */
     dealCards() {
-        const deck = (0, Deck_1.shuffle)((0, Deck_1.createDeck)());
-        const hands = (0, Deck_1.deal)(deck, [CARDS_PER_PLAYER, CARDS_PER_PLAYER, CARDS_PER_PLAYER]);
-        // 随机确定地主
-        this.landlordId = Math.floor(Math.random() * PLAYER_COUNT);
-        this.landlordCards = hands[PLAYER_COUNT];
+        // 重置游戏计数
+        this.finishedFarmerCount = 0;
+        const deckCount = getDeckCountByRoomType(this.roomType);
+        const cardsPerPlayer = getCardsPerPlayerByRoomType(this.roomType);
+        const deck = (0, Deck_1.shuffle)((0, Deck_1.createDeck)(deckCount));
+        const playerCount = this.players.length;
+        // 动态生成发牌数量数组
+        const dealAmounts = new Array(playerCount).fill(cardsPerPlayer);
+        const hands = (0, Deck_1.deal)(deck, dealAmounts);
+        // 随机选择明地主
+        this.landlordId = Math.floor(Math.random() * playerCount);
+        this.hiddenLandlordIds = []; // 暂时清空，等待明地主选择地主牌后再确定
+        this.landlordCards = hands[playerCount];
         // 设置玩家手牌
-        for (let i = 0; i < PLAYER_COUNT; i++) {
+        for (let i = 0; i < playerCount; i++) {
             this.hands[i] = new GameRules_1.Hand(hands[i]);
             this.players[i].hand = hands[i];
             this.players[i].isLandlord = (i === this.landlordId);
+            this.players[i].isHiddenLandlord = false;
         }
-        // 地主获得地主牌
-        this.hands[this.landlordId].addCards(this.landlordCards);
-        // 同步更新 players 中的手牌数据
-        this.players[this.landlordId].hand = this.hands[this.landlordId].cards;
+        // 地主获得地主牌（6人场无底牌）
+        if (this.landlordCards.length > 0) {
+            this.hands[this.landlordId].addCards(this.landlordCards);
+            this.players[this.landlordId].hand = this.hands[this.landlordId].cards;
+        }
         // 打印所有玩家手牌
-        for (let i = 0; i < PLAYER_COUNT; i++) {
+        for (let i = 0; i < playerCount; i++) {
             const cardIds = this.hands[i].cards.map(c => c.id);
-            console.log(`[DEALT] Player${i}(${this.players[i]?.isLandlord ? '地主' : '农民'}) hand: ${cardIds.join(',')} (${this.hands[i].cards.length}张)`);
+            let role = i === this.landlordId ? '明地主' : '农民';
+            console.log(`[DEALT] Player${i}(${role}) hand: ${cardIds.join(',')} (${this.hands[i].cards.length}张)`);
+        }
+        // 6人场：进入选择地主牌阶段，等待明地主的操作
+        if (isSixPlayerMode(this.roomType)) {
+            console.log(`[dealCards] 6人场，进入选择地主牌阶段， landlordId=${this.landlordId}`);
+            this.status = 'selecting_landlord_cards';
+            this.currentPlayerId = this.landlordId;
+            this.roundStartPlayerId = this.landlordId;
+            // 通知客户端明地主正在选择地主牌（不发 game_dealt，因为暗地主还没确定）
+            console.log(`[TURN] 明地主正在选择地主牌, landlordId=${this.currentPlayerId}`);
+            this.emit('turn_changed', this.currentPlayerId);
+            // 如果明地主是AI，服务器自动选择
+            if (this.players[this.landlordId]?.isAI) {
+                this.scheduleAIMove();
+            }
+            return;
         }
         // 快速匹配模式下：发送数据后等待客户端动画完成
         // 客户端播放完发牌动画后发送 game/ready，服务器再开始回合
         if (this.quickMatchMode) {
+            console.log(`[dealCards] emitting game_dealt: landlordId=${this.landlordId}, hiddenLandlordIds=${JSON.stringify(this.hiddenLandlordIds)}`);
             // 发送发牌数据
             this.emit('game_dealt', {
-                hands: [this.hands[0].cards, this.hands[1].cards, this.hands[2].cards],
+                hands: this.hands.map(h => h.cards),
                 landlordCards: this.landlordCards,
-                landlordId: this.landlordId
+                landlordId: this.landlordId,
+                hiddenLandlordIds: this.hiddenLandlordIds
             });
-            this.emit('landlord_selected', this.landlordId);
             // 等待客户端准备就绪
+            console.log(`[landlord_selected emit#1] landlordId=${this.landlordId}, hiddenIds=${JSON.stringify(this.hiddenLandlordIds)}, landlordCardId=-1`);
+            this.emit('landlord_selected', { landlordId: this.landlordId, hiddenLandlordIds: this.hiddenLandlordIds, landlordCardId: -1 });
             this.status = 'dealing';
             this.currentPlayerId = this.landlordId;
             this.roundStartPlayerId = this.landlordId;
@@ -194,11 +340,13 @@ class GameRoom extends events_1.EventEmitter {
         }
         else {
             this.emit('game_dealt', {
-                hands: [this.hands[0].cards, this.hands[1].cards, this.hands[2].cards],
+                hands: this.hands.map(h => h.cards),
                 landlordCards: this.landlordCards,
-                landlordId: this.landlordId
+                landlordId: this.landlordId,
+                hiddenLandlordIds: this.hiddenLandlordIds
             });
-            this.emit('landlord_selected', this.landlordId);
+            console.log(`[landlord_selected emit#2] landlordId=${this.landlordId}, hiddenIds=${JSON.stringify(this.hiddenLandlordIds)}, landlordCardId=-1`);
+            this.emit('landlord_selected', { landlordId: this.landlordId, hiddenLandlordIds: this.hiddenLandlordIds, landlordCardId: -1 });
             // 开始出牌阶段
             this.status = 'playing';
             this.currentPlayerId = this.landlordId;
@@ -208,6 +356,74 @@ class GameRoom extends events_1.EventEmitter {
             // 如果是 AI，自动出牌
             this.scheduleAIMove();
         }
+    }
+    /** 明地主选择地主牌 */
+    landlordCardsSelected(playerId, cardId) {
+        const playerIndex = this.getPlayerIndex(playerId);
+        if (playerIndex === -1) {
+            return { success: false, error: 'Player not in room' };
+        }
+        // 必须是明地主才能选择
+        if (playerIndex !== this.landlordId) {
+            return { success: false, error: 'Only landlord can select landlord cards' };
+        }
+        if (this.status !== 'selecting_landlord_cards') {
+            return { success: false, error: 'Not in selecting landlord cards phase' };
+        }
+        // 查找选中的卡牌
+        const selectedCard = this.hands[playerIndex].cards.find(c => c.id === cardId);
+        if (!selectedCard) {
+            return { success: false, error: 'Card not found in hand' };
+        }
+        console.log(`[landlordCardsSelected] 明地主${playerIndex}选择了地主牌: cardId=${cardId}, rank=${selectedCard.rank}, suit=${selectedCard.suit}`);
+        // 确定暗地主：找出拥有相同rank和suit的其他玩家
+        this.hiddenLandlordIds = [];
+        for (let i = 0; i < this.players.length; i++) {
+            if (i === this.landlordId)
+                continue; // 跳过明地主
+            const hasMatchingCard = this.hands[i].cards.some(c => c.rank === selectedCard.rank && c.suit === selectedCard.suit);
+            if (hasMatchingCard) {
+                this.hiddenLandlordIds.push(i);
+            }
+        }
+        // 存储代表性地主牌ID
+        this.landlordCardId = cardId;
+        // 打印暗地主信息
+        console.log(`[landlordCardsSelected] 确定暗地主: ${JSON.stringify(this.hiddenLandlordIds)}`);
+        // 更新玩家身份
+        for (let i = 0; i < this.players.length; i++) {
+            if (this.players[i]) {
+                this.players[i].isHiddenLandlord = this.hiddenLandlordIds.includes(i);
+            }
+        }
+        // 发送 game_dealt（如果之前没有发送的话，6人场在选择阶段不发送 game_dealt）
+        // 检查状态是否为 selecting_landlord_cards，如果是说明还没发送过 game_dealt
+        const previousStatus = this.status;
+        if (isSixPlayerMode(this.roomType) && previousStatus === 'selecting_landlord_cards') {
+            // 发送 game_dealt 事件，让 WebSocketHandler 来发送数据给各玩家
+            this.emit('game_dealt', {
+                hands: this.hands.map(h => h.cards),
+                landlordCards: this.landlordCards,
+                landlordId: this.landlordId,
+                hiddenLandlordIds: this.hiddenLandlordIds
+            });
+        }
+        // 广播地主选择完成
+        console.log(`[landlord_selected广播] landlordId=${this.landlordId}, hiddenLandlordIds=${JSON.stringify(this.hiddenLandlordIds)}, landlordCardId=${this.landlordCardId}`);
+        this.emit('landlord_selected', {
+            landlordId: this.landlordId,
+            hiddenLandlordIds: this.hiddenLandlordIds,
+            landlordCardId: this.landlordCardId
+        });
+        // 进入出牌阶段
+        this.status = 'playing';
+        this.firstMoveDone = false;
+        this.turnNotified = false;
+        console.log(`[TURN] Player${this.currentPlayerId}'s turn (landlord selected, start playing)`);
+        this.emit('turn_changed', this.currentPlayerId);
+        // 如果是 AI，自动出牌
+        this.scheduleAIMove();
+        return { success: true };
     }
     /** 玩家出牌 */
     playCards(playerId, cardIds) {
@@ -232,7 +448,14 @@ class GameRoom extends events_1.EventEmitter {
             return { success: false, error: 'Some cards not found in hand' };
         }
         // 识别牌型
-        const pattern = GameRules_1.GameRules.recognizePattern(cards);
+        let pattern;
+        if (this.roomType === 3 || this.roomType === 5) {
+            // 6人场使用GameRules2
+            pattern = GameRules2_1.GameRules2.recognizePattern(cards);
+        }
+        else {
+            pattern = GameRules_1.GameRules.recognizePattern(cards);
+        }
         // 创建出牌动作
         const move = {
             cards,
@@ -241,7 +464,10 @@ class GameRoom extends events_1.EventEmitter {
         };
         // 验证是否能压过上一手
         if (this.lastMove && this.lastMove.playerId !== playerIndex) {
-            if (!GameRules_1.GameRules.canBeat(move, this.lastMove)) {
+            const canBeat = (this.roomType === 3 || this.roomType === 5)
+                ? GameRules2_1.GameRules2.canBeat(move, this.lastMove)
+                : GameRules_1.GameRules.canBeat(move, this.lastMove);
+            if (!canBeat) {
                 return { success: false, error: 'Cannot beat last move' };
             }
         }
@@ -254,30 +480,75 @@ class GameRoom extends events_1.EventEmitter {
         const playedCardIds = cards.map(c => c.id);
         console.log(`[PLAY] Player${playerIndex} played: ${playedCardIds.join(',')} (${cards.length}张) ${pattern.type}, remaining: ${this.hands[playerIndex].cards.length}张`);
         // 打印所有玩家剩余手牌
-        for (let i = 0; i < PLAYER_COUNT; i++) {
+        for (let i = 0; i < this.players.length; i++) {
             const remaining = this.hands[i].cards.map(c => c.id);
             console.log(`[HAND] Player${i}: ${remaining.join(',')} (${this.hands[i].cards.length}张)`);
         }
         this.emit('cards_played', {
             playerId: playerIndex,
             cards,
-            remainingCounts: [this.hands[0].cards.length, this.hands[1].cards.length, this.hands[2].cards.length]
+            pattern,
+            remainingCounts: this.hands.map(h => h.cards.length)
         });
         // 检查游戏结束
         console.log(`[GAME_OVER CHECK] Player${playerIndex} hand empty: ${this.hands[playerIndex].isEmpty}, remaining: ${this.hands[playerIndex].cards.length}`);
         if (this.hands[playerIndex].isEmpty) {
-            console.log(`[GAME_OVER] Player${playerIndex} wins!`);
-            this.status = 'ended';
-            const isLandlordWin = playerIndex === this.landlordId;
-            const result = { winnerId: playerIndex, isLandlordWin };
-            this.emit('game_over', result);
-            return { success: true };
+            // 6人斗地主胜负判定
+            if (this.roomType === 5) {
+                // 明地主出完 -> 地主方赢
+                if (playerIndex === this.landlordId) {
+                    console.log(`[GAME_OVER] 明地主${playerIndex}出完，地主方获胜!`);
+                    this.status = 'ended';
+                    const { winnerNames, loserNames } = this.getWinnerAndLoserNames(true);
+                    const result = { winnerId: playerIndex, isLandlordWin: true, winnerNames, loserNames };
+                    this.emit('game_over', result);
+                    return { success: true };
+                }
+                // 暗地主出完，检查是否所有暗地主都已出完
+                if (this.hiddenLandlordIds.includes(playerIndex)) {
+                    const allHiddenLandlordsFinished = this.hiddenLandlordIds.every(id => this.hands[id].isEmpty);
+                    if (allHiddenLandlordsFinished) {
+                        console.log(`[GAME_OVER] 所有暗地主出完，地主方获胜!`);
+                        this.status = 'ended';
+                        const { winnerNames, loserNames } = this.getWinnerAndLoserNames(true);
+                        const result = { winnerId: playerIndex, isLandlordWin: true, winnerNames, loserNames };
+                        this.emit('game_over', result);
+                        return { success: true };
+                    }
+                }
+                // 农民出完
+                if (!this.hiddenLandlordIds.includes(playerIndex) && playerIndex !== this.landlordId) {
+                    this.finishedFarmerCount++;
+                    if (this.finishedFarmerCount >= 2) {
+                        console.log(`[GAME_OVER] 2名农民出完，农民方获胜!`);
+                        this.status = 'ended';
+                        const { winnerNames, loserNames } = this.getWinnerAndLoserNames(false);
+                        const result = { winnerId: playerIndex, isLandlordWin: false, winnerNames, loserNames };
+                        this.emit('game_over', result);
+                        return { success: true };
+                    }
+                }
+            }
+            else {
+                // 普通场（3人）胜负判定
+                const isLandlordTeam = playerIndex === this.landlordId;
+                console.log(`[GAME_OVER] Player${playerIndex} wins!`);
+                this.status = 'ended';
+                const { winnerNames, loserNames } = this.getWinnerAndLoserNames(isLandlordTeam);
+                const result = { winnerId: playerIndex, isLandlordWin: isLandlordTeam, winnerNames, loserNames };
+                this.emit('game_over', result);
+                return { success: true };
+            }
         }
         // 检查是否一轮结束
         if (this.checkRoundClear()) {
             // 更新下一轮的起始玩家为最后出牌者
             this.roundStartPlayerId = this.lastMove ? this.lastMove.playerId : this.roundStartPlayerId;
-            this.currentPlayerId = this.roundStartPlayerId; // 先更新currentPlayerId，再发送turn_changed
+            // 如果起始玩家没牌了，找下一个有牌的玩家
+            if (this.hands[this.roundStartPlayerId].isEmpty) {
+                this.roundStartPlayerId = this.getNextPlayerWithCards(this.roundStartPlayerId);
+            }
+            this.currentPlayerId = this.roundStartPlayerId;
             this.lastMove = null;
             this.passedPlayers.clear(); // 重置跳过记录
             this.emit('round_cleared');
@@ -286,14 +557,27 @@ class GameRoom extends events_1.EventEmitter {
             this.emit('turn_changed', this.roundStartPlayerId);
         }
         else {
-            // 下一回合
-            this.currentPlayerId = (this.currentPlayerId + 1) % PLAYER_COUNT;
+            // 下一回合，跳过没有手牌的玩家
+            this.currentPlayerId = this.getNextPlayerWithCards(this.currentPlayerId);
             console.log(`[TURN] Player${this.currentPlayerId}'s turn (next)`);
             this.emit('turn_changed', this.currentPlayerId);
         }
         // 如果是 AI，自动出牌
         this.scheduleAIMove();
         return { success: true };
+    }
+    /** 获取下一个还有手牌的玩家索引 */
+    getNextPlayerWithCards(fromPlayerId) {
+        const playerCount = this.players.length;
+        let nextPlayer = (fromPlayerId + 1) % playerCount;
+        let attempts = 0;
+        // 最多循环 playerCount 次，找到还有手牌的玩家
+        while (this.hands[nextPlayer].isEmpty && attempts < playerCount) {
+            nextPlayer = (nextPlayer + 1) % playerCount;
+            attempts++;
+        }
+        // 如果所有玩家都没牌了，返回当前玩家（游戏将结束）
+        return nextPlayer;
     }
     /** 玩家跳过 */
     pass(playerId) {
@@ -320,7 +604,11 @@ class GameRoom extends events_1.EventEmitter {
         if (this.checkRoundClear()) {
             // 更新下一轮的起始玩家为最后出牌者
             this.roundStartPlayerId = this.lastMove ? this.lastMove.playerId : this.roundStartPlayerId;
-            this.currentPlayerId = this.roundStartPlayerId; // 先更新currentPlayerId，再发送turn_changed
+            // 如果起始玩家没牌了，找下一个有牌的玩家
+            if (this.hands[this.roundStartPlayerId].isEmpty) {
+                this.roundStartPlayerId = this.getNextPlayerWithCards(this.roundStartPlayerId);
+            }
+            this.currentPlayerId = this.roundStartPlayerId;
             this.lastMove = null;
             this.passedPlayers.clear(); // 重置跳过记录
             this.emit('round_cleared');
@@ -329,8 +617,8 @@ class GameRoom extends events_1.EventEmitter {
             this.emit('turn_changed', this.roundStartPlayerId);
         }
         else {
-            // 下一回合
-            this.currentPlayerId = (this.currentPlayerId + 1) % PLAYER_COUNT;
+            // 下一回合，跳过没有手牌的玩家
+            this.currentPlayerId = this.getNextPlayerWithCards(this.currentPlayerId);
             console.log(`[TURN] Player${this.currentPlayerId}'s turn (pass next)`);
             this.emit('turn_changed', this.currentPlayerId);
         }
@@ -343,19 +631,40 @@ class GameRoom extends events_1.EventEmitter {
         // 只有出过牌之后才能判定一轮结束
         if (!this.lastMove)
             return false;
-        // 王炸（火箭）直接结束这一轮
-        if (this.lastMove.pattern.type === types_1.CardPatternType.ROCKET) {
-            return true;
-        }
-        const result = this.passedPlayers.size >= PLAYER_COUNT - 1;
+        // 王炸（火箭）不再直接结束这一轮，在6人场新规则中王炸只是炸弹牌型的一种
+        // 只有当所有其他玩家都跳过时才结束
+        // 计算还有手牌的玩家数量
+        const playersWithCards = this.players.filter((_, i) => !this.hands[i].isEmpty).length;
+        // 至少 passedPlayers.size >= 还有手牌的玩家数量 - 1 时，一轮结束
+        // 或者如果最后出牌者已经没牌了，也结束一轮
+        const result = this.passedPlayers.size >= playersWithCards - 1;
         return result;
+    }
+    /** 获取胜利和失败玩家名单 */
+    getWinnerAndLoserNames(isLandlordWin) {
+        const winnerNames = [];
+        const loserNames = [];
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            if (!player)
+                continue;
+            const isLandlordTeam = i === this.landlordId || this.hiddenLandlordIds.includes(i);
+            const name = player.nickname || `玩家${i}`;
+            if (isLandlordTeam === isLandlordWin) {
+                winnerNames.push(name);
+            }
+            else {
+                loserNames.push(name);
+            }
+        }
+        return { winnerNames, loserNames };
     }
     /** 获取下一个有玩家的位置 */
     getNextNonEmptyPlayer(from) {
-        let idx = (from + 1) % PLAYER_COUNT;
+        let idx = (from + 1) % this.players.length;
         let attempts = 0;
-        while (!this.players[idx] && attempts < PLAYER_COUNT) {
-            idx = (idx + 1) % PLAYER_COUNT;
+        while (!this.players[idx] && attempts < this.players.length) {
+            idx = (idx + 1) % this.players.length;
             attempts++;
         }
         return idx;
@@ -364,10 +673,31 @@ class GameRoom extends events_1.EventEmitter {
     scheduleAIMove() {
         // 清除之前的定时器
         this.clearAITimers();
-        // 快速匹配模式下延长延迟，让客户端有时间加载场景
-        const baseDelay = this.quickMatchMode ? 1500 : 500;
-        const randomDelay = this.quickMatchMode ? 500 : 500;
-        const delay = baseDelay + Math.random() * randomDelay;
+        // 如果是选择地主牌阶段（6人场明地主AI）
+        if (this.status === 'selecting_landlord_cards' && this.currentPlayerId === this.landlordId) {
+            if (this.players[this.landlordId]?.isAI) {
+                const delay = 5000 + Math.random() * 1000; // 5-6秒延迟
+                this.scheduledPlayerId = this.currentPlayerId;
+                const timer = setTimeout(() => {
+                    this.executeAIMove();
+                }, delay);
+                this.aiTimers.push(timer);
+                console.log(`[AI调度] 明地主AI选择地主牌，延迟${delay}ms`);
+            }
+            return;
+        }
+        // 计算延迟：如果AI是地主且是首轮出牌，使用更长延迟（给客户端播放发牌动画的时间）
+        // 后续回合无论是否地主都用 1.5-2 秒
+        let delay = 500;
+        if (this.players[this.currentPlayerId]?.isAI) {
+            const isLandlord = this.currentPlayerId === this.landlordId;
+            if (isLandlord && !this.firstMoveDone) {
+                delay = 5000 + Math.random() * 1000; // 首轮地主：5-6秒
+            }
+            else {
+                delay = 1500 + Math.random() * 500; // 后续：1.5-2秒
+            }
+        }
         // 如果是 AI，延迟后自动出牌
         if (this.players[this.currentPlayerId]?.isAI) {
             this.scheduledPlayerId = this.currentPlayerId;
@@ -375,6 +705,7 @@ class GameRoom extends events_1.EventEmitter {
                 this.executeAIMove();
             }, delay);
             this.aiTimers.push(timer);
+            console.log(`[AI调度] 延迟${delay}ms后出牌, landlordId=${this.landlordId}, currentPlayerId=${this.currentPlayerId}, firstMoveDone=${this.firstMoveDone}`);
         }
         else {
             this.scheduledPlayerId = -1;
@@ -387,14 +718,32 @@ class GameRoom extends events_1.EventEmitter {
         if (scheduledIdx !== this.currentPlayerId) {
             return;
         }
+        // 如果是选择地主牌阶段（AI明地主）
+        if (this.status === 'selecting_landlord_cards' && this.currentPlayerId === this.landlordId) {
+            const hand = this.hands[this.currentPlayerId];
+            if (hand.cards.length > 0) {
+                // 随机选择一张牌作为地主牌
+                const randomCard = hand.cards[Math.floor(Math.random() * hand.cards.length)];
+                console.log(`[AI选择地主牌] 明地主AI随机选择: cardId=${randomCard.id}`);
+                this.landlordCardsSelected(this.players[this.currentPlayerId].id, randomCard.id);
+            }
+            return;
+        }
         if (this.status !== 'playing') {
             return;
         }
         if (!this.players[this.currentPlayerId]?.isAI) {
             return;
         }
+        // 首轮出牌后标记
+        if (!this.firstMoveDone) {
+            this.firstMoveDone = true;
+            console.log(`[首轮完成] firstMoveDone设为true`);
+        }
         const hand = this.hands[this.currentPlayerId];
-        const validMoves = GameRules_1.GameRules.generateValidMoves(hand, this.lastMove, this.currentPlayerId);
+        const validMoves = (this.roomType === 3 || this.roomType === 5)
+            ? GameRules2_1.GameRules2.generateValidMoves(hand, this.lastMove, this.currentPlayerId)
+            : GameRules_1.GameRules.generateValidMoves(hand, this.lastMove, this.currentPlayerId);
         if (validMoves.length === 0) {
             // 无法出牌，尝试跳过
             const passResult = this.pass(this.players[this.currentPlayerId].id);
@@ -472,10 +821,18 @@ class GameRoom extends events_1.EventEmitter {
     }
     /** 客户端动画播放完成，等待开始出牌 */
     clientReady() {
-        if (!this.waitingForClientReady)
+        console.log(`[clientReady] called, waitingForClientReady=${this.waitingForClientReady}, currentPlayerId=${this.currentPlayerId}, landlordId=${this.landlordId}, status=${this.status}, quickMatchMode=${this.quickMatchMode}, turnNotified=${this.turnNotified}`);
+        if (!this.waitingForClientReady) {
+            console.log(`[clientReady] early return: waitingForClientReady is false`);
             return;
+        }
+        if (this.turnNotified) {
+            console.log(`[clientReady] early return: turnNotified is true, skipping`);
+            return;
+        }
         this.waitingForClientReady = false;
         this.status = 'playing';
+        this.turnNotified = true;
         console.log(`[TURN] Player${this.currentPlayerId}'s turn (client ready)`);
         this.emit('turn_changed', this.currentPlayerId);
         this.scheduleAIMove();

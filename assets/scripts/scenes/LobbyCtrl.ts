@@ -5,7 +5,7 @@
 import { _decorator, Component, Button, EditBox, Label } from 'cc';
 import { director } from 'cc';
 import { CURRENT_ROOM_TYPE, setCurrentRoomId, setCurrentRoomCode, setCurrentPlayerIndex, setCurrentRoomPlayers, setQuickMatchDealt, CURRENT_USER_ID, CURRENT_USER_NAME } from '../shared/Constants';
-import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
+import { WebSocketManager, WsMessageType, WsConnectionState } from '../shared/WebSocketManager';
 import { RoomManager } from '../shared/RoomManager';
 
 const { ccclass, property } = _decorator;
@@ -35,11 +35,11 @@ export class LobbyCtrl extends Component {
     private isLoading: boolean = false;
 
     // 保存回调函数引用，用于清理
-    private onConnectHandler: () => void = () => {};
-    private onRoomCreateHandler: (data: any) => void = () => {};
-    private onRoomJoinHandler: (data: any) => void = () => {};
-    private onQuickMatchHandler: (data: any) => void = () => {};
-    private onErrorHandler: (error: any) => void = () => {};
+    private onConnectHandler: () => void = () => { };
+    private onRoomCreateHandler: (data: any) => void = () => { };
+    private onRoomJoinHandler: (data: any) => void = () => { };
+    private onQuickMatchHandler: (data: any) => void = () => { };
+    private onErrorHandler: (error: any) => void = () => { };
 
     start() {
         this.setupUI();
@@ -83,7 +83,11 @@ export class LobbyCtrl extends Component {
                 if (data.dealt && data.dealt.hand && Array.isArray(data.dealt.hand) && data.dealt.hand.length > 0) {
                     setQuickMatchDealt(data.dealt);
                 }
-                director.loadScene('GameTable');
+                // 根据房间类型进入不同场景
+                const roomType = data.room.type || CURRENT_ROOM_TYPE;
+                // 6人场 (roomType 3 和 5 都是6人) 使用 GameTable2
+                const sceneName = (roomType === 5 || roomType === 3) ? 'GameTable2' : 'GameTable';
+                director.loadScene(sceneName);
             } else {
                 this.showErrorTip(data.error || '匹配失败');
                 this.isLoading = false;
@@ -144,30 +148,22 @@ export class LobbyCtrl extends Component {
 
     private onCreateRoomClicked(): void {
         if (this.isLoading) return;
-
         this.isLoading = true;
 
-        const roomType = CURRENT_ROOM_TYPE;
-
-        // 等待连接成功后发送创建房间请求
-        if (this.wsManager.state === 'connected') {
-            this.sendCreateRoom();
-        } else {
-            this.wsManager.once('connect', () => {
-                this.sendCreateRoom();
-            });
-        }
+        this.sendCreateRoom();
     }
 
     private sendCreateRoom(): void {
         // 使用保存的用户信息
         const userId = CURRENT_USER_ID;
         const nickname = CURRENT_USER_NAME;
+        const roomType = CURRENT_ROOM_TYPE;
+        console.log('[LobbyCtrl] sendCreateRoom, roomType:', roomType, 'CURRENT_ROOM_TYPE:', CURRENT_ROOM_TYPE);
         // 创建房间
         this.wsManager.send(WsMessageType.ROOM_CREATE, {
             userId: userId,
             nickname: nickname,
-            roomType: CURRENT_ROOM_TYPE
+            roomType: roomType
         });
     }
 
@@ -199,18 +195,13 @@ export class LobbyCtrl extends Component {
 
         this.isLoading = true;
 
-        if (this.wsManager.state === 'connected') {
-            this.sendJoinRoom(inputStr);
-        } else {
-            this.wsManager.once('connect', () => {
-                this.sendJoinRoom(inputStr);
-            });
-        }
+        this.sendJoinRoom(inputStr);
     }
 
     private sendJoinRoom(roomCode: string): void {
         this.wsManager.send(WsMessageType.ROOM_JOIN, {
             roomCode: roomCode,
+            roomType: CURRENT_ROOM_TYPE,
             userId: CURRENT_USER_ID,
             nickname: CURRENT_USER_NAME
         });
@@ -218,25 +209,16 @@ export class LobbyCtrl extends Component {
 
     /** 匹配对战 - 直接进入游戏桌（单人测试用） */
     private onMatchBattleClicked(): void {
-        if (CURRENT_ROOM_TYPE !== 1) {
-            return;
-        }
-
         if (this.isLoading) return;
         this.isLoading = true;
 
-        if (this.wsManager.state === 'connected') {
-            this.sendQuickMatch();
-        } else {
-            this.wsManager.once('connect', () => {
-                this.sendQuickMatch();
-            });
-        }
+        this.sendQuickMatch();
     }
 
     private sendQuickMatch(): void {
         this.wsManager.send(WsMessageType.ROOM_QUICK_MATCH, {
-            userId: CURRENT_USER_ID
+            userId: CURRENT_USER_ID,
+            roomType: CURRENT_ROOM_TYPE
         });
     }
 

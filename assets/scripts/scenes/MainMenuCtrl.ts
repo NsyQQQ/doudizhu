@@ -2,7 +2,7 @@
  * 主菜单控制器
  */
 
-import { _decorator, Component, Button, Label, Color, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Component, Button, Label, Color, Sprite, SpriteFrame, game } from 'cc';
 import { director, resources } from 'cc';
 import { setCurrentRoomType, setCurrentUserId, setCurrentUserName, CURRENT_USER_ID, CURRENT_USER_NAME, CURRENT_USER_AVATAR } from '../shared/Constants';
 import { WebSocketManager } from '../shared/WebSocketManager';
@@ -49,6 +49,26 @@ export class MainMenuCtrl extends Component {
         this.setupButtons();
         this.updateConnectionStatus();
         this.setAvatar();
+        this.disableButtons();
+    }
+
+    /** 禁用指定按钮（置灰并不可点击） */
+    private disableButton(button: Button): void {
+        if (!button) return;
+        button.interactable = false;
+        // Button 通常使用子节点显示，需要遍历子节点找 Sprite
+        const sprites = button.node.getComponentsInChildren(Sprite);
+        for (const sprite of sprites) {
+            sprite.grayscale = true;
+        }
+    }
+
+    /** 禁用 btn2 btn3 btn4 btn6 */
+    private disableButtons(): void {
+        this.disableButton(this.button2);
+        this.disableButton(this.button3);
+        this.disableButton(this.button4);
+        this.disableButton(this.button6);
     }
 
     /** 更新连接状态显示 */

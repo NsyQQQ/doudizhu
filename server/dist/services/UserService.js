@@ -24,6 +24,17 @@ class UserService {
             throw error;
         }
     }
+    /** 根据openid查找用户（不创建） */
+    async findByOpenid(openid) {
+        try {
+            const [rows] = await database_1.pool.query('SELECT * FROM users WHERE openid = ?', [openid]);
+            return rows.length > 0 ? rows[0] : null;
+        }
+        catch (error) {
+            console.error('[UserService] findByOpenid error:', error);
+            throw error;
+        }
+    }
     /** 根据ID查找用户 */
     async findById(id) {
         try {

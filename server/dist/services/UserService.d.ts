@@ -2,6 +2,8 @@ import { User } from '../models';
 export declare class UserService {
     /** 根据openid查找或创建用户 */
     findOrCreateByOpenid(openid: string, nickname?: string, avatar?: string): Promise<User | null>;
+    /** 根据openid查找用户（不创建） */
+    findByOpenid(openid: string): Promise<User | null>;
     /** 根据ID查找用户 */
     findById(id: number): Promise<User | null>;
     /** 更新用户房间ID */

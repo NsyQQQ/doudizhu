@@ -61,4 +61,5 @@ export const GameEvents = {
     PASS_REQUESTED: 'ui:passRequested',
     HINT_REQUESTED: 'ui:hintRequested',
     CARD_DEALT: 'game:cardDealt',
+    SELECT_LANDLORD_CARDS: 'ui:selectLandlordCards',
 } as const;

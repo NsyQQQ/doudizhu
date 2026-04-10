@@ -54,7 +54,7 @@ export interface Card {
 }
 /** 牌型识别结果 */
 export interface PatternResult {
-    type: CardPatternType;
+    type: number;
     primaryValue: number;
     secondaryValue?: number;
 }
@@ -75,13 +75,16 @@ export interface GamePlayer {
     isAI: boolean;
     hand: Card[];
     isLandlord: boolean;
+    isHiddenLandlord: boolean;
     wsId?: string;
 }
 /** 游戏状态 */
-export type GameStatus = 'waiting' | 'dealing' | 'playing' | 'ended';
+export type GameStatus = 'waiting' | 'dealing' | 'selecting_landlord_cards' | 'playing' | 'ended';
 /** 游戏结果 */
 export interface GameOverResult {
     winnerId: number;
     isLandlordWin: boolean;
+    winnerNames: string[];
+    loserNames: string[];
 }
 //# sourceMappingURL=types.d.ts.map

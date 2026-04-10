@@ -115,6 +115,36 @@ export function setCurrentUserAvatar(avatar: string): void {
     CURRENT_USER_AVATAR = avatar;
 }
 
+/** 房间类型对应玩家数量 */
+export const ROOM_PLAYER_COUNTS: Record<number, number> = {
+    1: 3,
+    2: 4,
+    3: 6,
+    4: 5,
+    5: 6,
+    6: 7,
+};
+
+/** 房间类型对应每人手牌数量 */
+export const ROOM_CARDS_PER_PLAYER: Record<number, number> = {
+    1: 17,
+    2: 13,
+    3: 25,
+    4: 11,
+    5: 27,
+    6: 21,
+};
+
+/** 房间名称配置 */
+export const ROOM_NAMES: Record<number, string> = {
+    1: '三人斗地主',
+    2: '四人斗地主',
+    3: '六人斗地主',
+    4: '五人斗地主',
+    5: '六人斗地主',
+    6: '七人斗地主',
+};
+
 /** 当前房间玩家列表 */
 export let CURRENT_ROOM_PLAYERS: any[] = [];
 

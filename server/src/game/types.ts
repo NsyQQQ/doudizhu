@@ -59,7 +59,7 @@ export interface Card {
 
 /** 牌型识别结果 */
 export interface PatternResult {
-    type: CardPatternType;
+    type: number;  // 使用 number 支持 CardPatternType 和 CardPatternType2
     primaryValue: number;
     secondaryValue?: number;
 }
@@ -82,14 +82,17 @@ export interface GamePlayer {
     isAI: boolean;
     hand: Card[];
     isLandlord: boolean;
+    isHiddenLandlord: boolean; // 暗地主（6人场）
     wsId?: string; // WebSocket client ID
 }
 
 /** 游戏状态 */
-export type GameStatus = 'waiting' | 'dealing' | 'playing' | 'ended';
+export type GameStatus = 'waiting' | 'dealing' | 'selecting_landlord_cards' | 'playing' | 'ended';
 
 /** 游戏结果 */
 export interface GameOverResult {
     winnerId: number;
     isLandlordWin: boolean;
+    winnerNames: string[];   // 胜利方玩家名字
+    loserNames: string[];   // 失败方玩家名字
 }

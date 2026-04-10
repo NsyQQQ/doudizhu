@@ -6,9 +6,10 @@ import { _decorator, Component, Button, Label } from 'cc';
 import { EventBus, GameEvents } from '../shared/EventBus';
 import { Card } from '../core/Card';
 import { GameRules } from '../core/GameRules';
+import { GameRules2 } from '../core/GameRules2';
 import { Hand } from '../core/Hand';
 import { Move } from '../core/Move';
-import { CURRENT_PLAYER_INDEX } from '../shared/Constants';
+import { CURRENT_PLAYER_INDEX, CURRENT_ROOM_TYPE } from '../shared/Constants';
 
 const { ccclass, property } = _decorator;
 
@@ -22,6 +23,9 @@ export class ActionButtons extends Component {
 
     @property(Button)
     hintButton: Button = null!;
+
+    @property(Button)
+    selectLandlordButton: Button = null!;  // 选择地主牌按钮
 
     @property(Label)
     playLabel: Label = null!;
@@ -39,6 +43,13 @@ export class ActionButtons extends Component {
     private hintMoves: Move[] = [];  // 当前可出的所有提示
     private hintIndex: number = 0;    // 当前提示索引
     private waitingForRoundClear: boolean = false;  // 是否在等待回合清除处理
+    private selectingLandlordCards: boolean = false;  // 是否在选择地主牌阶段
+
+    /** 设置是否轮到自己出牌 */
+    public setMyTurn(myTurn: boolean): void {
+        this.isMyTurn = myTurn;
+        this.updateButtonState();
+    }
 
     // 存储绑定函数
     private boundOnGameStarted: () => void = null!;
@@ -64,6 +75,18 @@ export class ActionButtons extends Component {
         EventBus.on(GameEvents.ROUND_CLEARED, this.boundOnRoundCleared);
     }
 
+    /** 是否是6人场模式 */
+    private isSixPlayerMode(): boolean {
+        return CURRENT_ROOM_TYPE === 5;
+    }
+
+    /** 获取当前规则的generateValidMoves */
+    private generateValidMoves(hand: Hand, lastMove: Move | null, playerId: number) {
+        return this.isSixPlayerMode()
+            ? GameRules2.generateValidMoves(hand, lastMove, playerId)
+            : GameRules.generateValidMoves(hand, lastMove, playerId);
+    }
+
     /** 游戏开始时重置状态 */
     private onGameStarted(): void {
         this.isMyTurn = false;
@@ -85,6 +108,7 @@ export class ActionButtons extends Component {
         this.hintMoves = [];
         this.hintIndex = 0;
         this.waitingForRoundClear = false;
+        this.selectingLandlordCards = false;
         this.updateButtonState();
     }
 
@@ -97,6 +121,9 @@ export class ActionButtons extends Component {
         }
         if (this.hintButton) {
             this.hintButton.node.on('click', this.onHintClicked, this);
+        }
+        if (this.selectLandlordButton) {
+            this.selectLandlordButton.node.on('click', this.onSelectLandlordClicked, this);
         }
     }
 
@@ -158,14 +185,26 @@ export class ActionButtons extends Component {
     }
 
     public updateButtonState(): void {
-        if (!this.playButton || !this.passButton || !this.hintButton) return;
+        if (!this.playButton || !this.passButton || !this.hintButton || !this.selectLandlordButton) return;
+
+        // 如果是选择地主牌阶段，只显示选牌按钮
+        if (this.selectingLandlordCards) {
+            this.playButton.node.active = false;
+            this.passButton.node.active = false;
+            this.hintButton.node.active = false;
+            this.selectLandlordButton.node.active = this.isMyTurn;
+
+            // 选牌按钮：需要选中1张牌才能点击
+            const canSelect = this.selectedCards.length === 1;
+            this.selectLandlordButton.interactable = canSelect;
+            return;
+        }
 
         const showButtons = this.isMyTurn;
         this.playButton.node.active = showButtons;
         this.passButton.node.active = showButtons;
         this.hintButton.node.active = showButtons;
-
-
+        this.selectLandlordButton.node.active = false;
 
         if (!showButtons) return;
 
@@ -173,7 +212,7 @@ export class ActionButtons extends Component {
         let canPlay = false;
 
         if (hasSelection && this.hand) {
-            const validMoves = GameRules.generateValidMoves(this.hand, this.lastMove, 0);
+            const validMoves = this.generateValidMoves(this.hand, this.lastMove, 0);
 
             // 计算选中牌的rank数量
             const selectedRankCounts = new Map<number, number>();
@@ -214,7 +253,7 @@ export class ActionButtons extends Component {
 
         // 提示按钮：仅当有可出的牌时可用
         if (this.hand) {
-            const validMoves = GameRules.generateValidMoves(this.hand, this.lastMove, 0);
+            const validMoves = this.generateValidMoves(this.hand, this.lastMove, 0);
             const lastMoveInfo = this.lastMove
                 ? `lastMove: ${this.lastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${this.lastMove.pattern.type}`
                 : 'lastMove: null';
@@ -258,7 +297,7 @@ export class ActionButtons extends Component {
                 ? `lastMove: ${this.lastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${this.lastMove.pattern.type} count: ${this.lastMove.cards.length}`
                 : 'lastMove: null';
             console.log(`[提示] 重新生成提示, ${lastMoveInfo}`);
-            const validMoves = GameRules.generateValidMoves(this.hand, this.lastMove, 0);
+            const validMoves = this.generateValidMoves(this.hand, this.lastMove, 0);
             // 过滤掉 PASS，只保留实际出牌
             let actualPlays = validMoves.filter(m => m.cards.length > 0);
             console.log(`[提示] 重新生成提示, actualPlays数量: ${actualPlays.length}`);
@@ -313,6 +352,30 @@ export class ActionButtons extends Component {
         this.updateButtonState();
     }
 
+    /** 设置是否在选择地主牌阶段 */
+    setSelectingLandlordCards(selecting: boolean): void {
+        this.selectingLandlordCards = selecting;
+        if (selecting) {
+            this.selectedCards = [];
+        } else {
+            // 退出选择地主牌阶段时，也要清空选牌
+            this.selectedCards = [];
+        }
+        this.updateButtonState();
+    }
+
+    /** 选择地主牌按钮点击 */
+    private onSelectLandlordClicked(): void {
+        console.log(`[选择地主牌按钮] 点击，选中${this.selectedCards.length}张牌`);
+        if (this.selectedCards.length === 1) {
+            // 发送选择地主牌事件
+            EventBus.emit(GameEvents.SELECT_LANDLORD_CARDS, { card: this.selectedCards[0] });
+            this.selectedCards = [];
+        } else {
+            console.log(`[选择地主牌按钮] 需要且只能选择1张牌，当前选中${this.selectedCards.length}张`);
+        }
+    }
+
     onDestroy(): void {
         EventBus.off(GameEvents.GAME_STARTED, this.boundOnGameStarted);
         EventBus.off(GameEvents.TURN_CHANGED, this.boundOnTurnChanged);
@@ -327,6 +390,9 @@ export class ActionButtons extends Component {
         }
         if (this.hintButton?.node) {
             this.hintButton.node.off('click', this.onHintClicked, this);
+        }
+        if (this.selectLandlordButton?.node) {
+            this.selectLandlordButton.node.off('click', this.onSelectLandlordClicked, this);
         }
     }
 }

@@ -23,7 +23,7 @@
     "_active": true,
     "_components": [],
     "_prefab": {
-      "__id__": 149
+      "__id__": 150
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -54,7 +54,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 150
+      "__id__": 151
     },
     "_id": "4b5eaf56-d223-4b06-821e-12b4b31feab9"
   },
@@ -123,6 +123,9 @@
       },
       {
         "__id__": 148
+      },
+      {
+        "__id__": 149
       }
     ],
     "_prefab": null,
@@ -555,7 +558,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 150,
-      "height": 75
+      "height": 70
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1868,6 +1871,9 @@
     "rightArea": {
       "__id__": 32
     },
+    "topLeftArea": null,
+    "topArea": null,
+    "topRightArea": null,
     "bottomLabel": {
       "__id__": 36
     },
@@ -1877,6 +1883,9 @@
     "rightLabel": {
       "__id__": 42
     },
+    "topLeftLabel": null,
+    "topLabel": null,
+    "topRightLabel": null,
     "_id": "b7BetQ8wRK3JgI0wQVJnHM"
   },
   {
@@ -6067,6 +6076,18 @@
     "_id": "0dx393vWFI/qVx+RVfQY/6"
   },
   {
+    "__type__": "871c8HPXMpEn4PSxM9886DH",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 2
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_id": "14od4z1ENCi470AJcIy2XU"
+  },
+  {
     "__type__": "cc.PrefabInfo",
     "root": null,
     "asset": null,
@@ -6077,28 +6098,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 151
-    },
-    "shadows": {
       "__id__": 152
     },
-    "_skybox": {
+    "shadows": {
       "__id__": 153
     },
-    "fog": {
+    "_skybox": {
       "__id__": 154
     },
-    "octree": {
+    "fog": {
       "__id__": 155
     },
-    "skin": {
+    "octree": {
       "__id__": 156
     },
-    "lightProbeInfo": {
+    "skin": {
       "__id__": 157
     },
-    "postSettings": {
+    "lightProbeInfo": {
       "__id__": 158
+    },
+    "postSettings": {
+      "__id__": 159
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false

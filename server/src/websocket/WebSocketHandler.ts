@@ -1,7 +1,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
 import { GameRoomManager } from '../game/GameRoomManager';
-import { GameRoom } from '../game/GameRoom';
+import { GameRoom, getPlayerCountByRoomType } from '../game/GameRoom';
 import { Card } from '../game/types';
 import { userService } from '../services/UserService';
 
@@ -117,6 +117,10 @@ export class WebSocketHandler {
         await this.handleGameReady(ws, client);
         break;
 
+      case 'game/landlord_cards_selected':
+        await this.handleLandlordCardsSelected(ws, client, message.data);
+        break;
+
       case 'heartbeat':
         this.send(ws, { type: 'heartbeat' });
         break;
@@ -140,6 +144,8 @@ export class WebSocketHandler {
   private async handleCreateRoom(ws: WebSocket, client: WSClient, data: { userId: number, roomType?: number }): Promise<void> {
     try {
       const userId = data.userId;
+      const roomType = data.roomType || 5; // 默认5（6人斗地主）
+      console.log(`[handleCreateRoom] received data.roomType=${data.roomType}, using roomType=${roomType}`);
 
       // 尝试获取用户信息，如果不存在则创建一个测试用户
       let user = await userService.findById(userId);
@@ -165,8 +171,9 @@ export class WebSocketHandler {
         avatar: user.avatar || '',
         isReady: true, // 房主默认准备
         isHost: true,
-        isAI: false
-      });
+        isAI: false,
+        isHiddenLandlord: false
+      }, roomType);
 
       client.roomCode = room.roomCode;
       client.playerIndex = 0; // 房主是位置0
@@ -187,7 +194,7 @@ export class WebSocketHandler {
           room: {
             id: room.roomId,
             roomCode: room.roomCode,
-            type: data.roomType || 1,
+            type: roomType,
             players: players
           }
         }
@@ -205,13 +212,19 @@ export class WebSocketHandler {
   }
 
   /** 加入房间 */
-  private async handleJoinRoom(ws: WebSocket, client: WSClient, data: { roomCode: string, userId: number }): Promise<void> {
+  private async handleJoinRoom(ws: WebSocket, client: WSClient, data: { roomCode: string, roomType: number, userId: number }): Promise<void> {
     try {
-      const { roomCode, userId } = data;
+      const { roomCode, roomType, userId } = data;
 
       const room = this.gameRooms.findByRoomCode(roomCode);
       if (!room) {
         this.send(ws, { type: 'room/join', data: { success: false, error: '房间不存在' } });
+        return;
+      }
+
+      // 检查房间类型是否匹配
+      if ((room as any).roomType !== roomType) {
+        this.send(ws, { type: 'room/join', data: { success: false, error: '房间类型不匹配' } });
         return;
       }
 
@@ -242,7 +255,8 @@ export class WebSocketHandler {
         avatar: user.avatar || '',
         isReady: false,
         isHost: false,
-        isAI: false
+        isAI: false,
+        isHiddenLandlord: false
       });
 
       if (!result) {
@@ -266,7 +280,7 @@ export class WebSocketHandler {
           room: {
             id: room.roomId,
             roomCode: room.roomCode,
-            type: 1,
+            type: (room as any).roomType,
             players: room.getPlayers()
           },
           playerIndex: result.position
@@ -296,12 +310,31 @@ export class WebSocketHandler {
 
     const playerId = client.userId;
     const playerIndex = client.playerIndex;
-    room.removePlayer(playerId);
+    const roomCode = client.roomCode;
 
-    this.broadcastToRoom(client.roomCode, {
-      type: 'room/player_leave',
-      data: { playerIndex, players: room.getPlayers() }
-    });
+    // 检查是否是房主（host）
+    const players = room.getPlayers();
+    const currentPlayer = players[playerIndex];
+    const isHost = currentPlayer?.isHost || false;
+
+    if (isHost) {
+      // 房主离开：解散房间
+      console.log(`[handleLeaveRoom] host ${playerId} leaving, destroying room ${roomCode}`);
+      this.gameRooms.destroyRoom(roomCode);
+
+      this.broadcastToRoom(roomCode, {
+        type: 'room/player_leave',
+        data: { playerIndex, players: [], isHostLeft: true, roomDestroyed: true }
+      });
+    } else {
+      // 非房主离开：只移除玩家，保留房间
+      this.gameRooms.leaveRoom(playerId);
+
+      this.broadcastToRoom(roomCode, {
+        type: 'room/player_leave',
+        data: { playerIndex, players: room.getPlayers(), isHostLeft: false, roomDestroyed: false }
+      });
+    }
 
     client.roomCode = null;
     client.playerIndex = null;
@@ -338,8 +371,20 @@ export class WebSocketHandler {
     }
 
     const targetPosition = data.position ?? -1;
-    const aiNames = ['小智', '小红', '小明', '小强', '小芳', '小刚'];
-    const aiName = aiNames[Math.floor(Math.random() * aiNames.length)];
+
+    // 获取当前已使用的AI名字，避免重复
+    const usedNames = players
+      .filter(p => p && p.isAI && p.nickname)
+      .map(p => p!.nickname);
+    const allAiNames = ['小智', '小红', '小明', '小强', '小芳', '小刚'];
+    const availableNames = allAiNames.filter(n => !usedNames.includes(n));
+
+    let aiName: string;
+    if (availableNames.length > 0) {
+      aiName = availableNames[Math.floor(Math.random() * availableNames.length)];
+    } else {
+      aiName = `AI${targetPosition}`;
+    }
 
     const result = room.addAI(targetPosition, aiName);
     if (!result.success) {
@@ -382,15 +427,73 @@ export class WebSocketHandler {
   }
 
   /** 快速匹配 - 创建房间并自动添加AI后开始游戏 */
-  private async handleQuickMatch(ws: WebSocket, client: WSClient, data?: { userId?: number }): Promise<void> {
+  private async handleQuickMatch(ws: WebSocket, client: WSClient, data?: { userId?: number, roomType?: number }): Promise<void> {
     const userId = data?.userId ?? client.userId;
+    const roomType = data?.roomType ?? 5;
+    console.log(`[handleQuickMatch] received roomType=${data?.roomType}, using roomType=${roomType}, client.roomCode=${client.roomCode}`);
 
-    // 如果客户端已在房间中（再来一局），则重置现有房间的游戏
+    // 检查玩家是否已在其他房间中，如果有则先离开
+    const existingRoomByPlayer = this.gameRooms.getPlayerRoom(userId);
+    if (existingRoomByPlayer) {
+      console.log(`[handleQuickMatch] player ${userId} already in room ${client.roomCode}, leaving first`);
+      this.gameRooms.leaveRoom(userId);
+      client.roomCode = null;
+      client.playerIndex = null;
+    }
+
+    // 如果客户端已在房间中，检查是否需要重开游戏
     if (client.roomCode) {
       const existingRoom = this.gameRooms.findByRoomCode(client.roomCode);
       if (existingRoom) {
-        await this.handleRoomRestart(ws, client, existingRoom);
-        return;
+        const roomStatus = (existingRoom as any).status as string;
+        console.log(`[handleQuickMatch] existing room status=${roomStatus}, type=${(existingRoom as any).roomType}`);
+
+        // 如果游戏已结束，调用 restartGame 重开（保持在同一房间）
+        if (roomStatus === 'ended' || roomStatus === 'playing') {
+          console.log(`[handleQuickMatch] calling restartGame on existing room`);
+          const restartResult = (existingRoom as any).restartGame ? existingRoom.restartGame() : false;
+          if (!restartResult) {
+            this.send(ws, { type: 'room/quick_match', data: { success: false, error: '重开游戏失败' } });
+            return;
+          }
+
+          // 重开后直接发送 room/quick_match 响应（包含发牌数据）
+          const playerHand = existingRoom.getPlayerHand(client.playerIndex!);
+          const landlordCards = existingRoom.getLandlordCards();
+          const landlordId = (existingRoom as any).landlordId as number;
+          const hiddenLandlordIds = (existingRoom as any).hiddenLandlordIds as number[] || [];
+          const isLandlord = client.playerIndex === landlordId;
+          const handCards = isLandlord ? [...(playerHand || []), ...landlordCards] : (playerHand || []);
+
+          // 重置客户端的重连状态
+          client.turnNotified = false;
+
+          this.send(ws, {
+            type: 'room/quick_match',
+            data: {
+              success: true,
+              room: {
+                id: (existingRoom as any).roomId,
+                roomCode: (existingRoom as any).roomCode,
+                type: (existingRoom as any).roomType,
+                players: existingRoom.getPlayers()
+              },
+              dealt: {
+                hand: handCards,
+                landlordCards: landlordCards || [],
+                landlordId: landlordId,
+                hiddenLandlordIds: hiddenLandlordIds
+              }
+            }
+          });
+          return;
+        }
+
+        // 游戏未结束，先离开旧房间
+        console.log(`[handleQuickMatch] leaving old room=${client.roomCode}, type=${(existingRoom as any).roomType}`);
+        this.gameRooms.leaveRoom(client.userId);
+        client.roomCode = null;
+        client.playerIndex = null;
       }
     }
 
@@ -417,8 +520,9 @@ export class WebSocketHandler {
       avatar: user.avatar || '',
       isReady: true,
       isHost: true,
-      isAI: false
-    });
+      isAI: false,
+      isHiddenLandlord: false
+    }, roomType);
 
     client.roomCode = room.roomCode;
     client.playerIndex = 0;
@@ -430,10 +534,14 @@ export class WebSocketHandler {
     // 调用 setupRoomListeners 以便发送游戏消息
     this.setupRoomListeners(room);
 
-    // 添加两个AI
-    const aiNames = ['小智', '小明'];
-    for (let i = 0; i < 2; i++) {
-      const result = room.addAI(i + 1, aiNames[i]);
+    // 根据房间类型获取玩家数量，动态添加AI（房主 + AI = 房间总人数 - 1个AI）
+    const playerCount = getPlayerCountByRoomType(roomType);
+    const aiCount = playerCount - 1; // 除了房主外都是AI
+
+    const aiNames = ['小智', '小红', '小明', '小强', '小芳', '小刚', '小华', '小杰', '小丽', '小燕'];
+    for (let i = 0; i < aiCount; i++) {
+      const aiName = aiNames[i % aiNames.length];
+      const result = room.addAI(i + 1, aiName);
       if (!result.success) {
         this.send(ws, { type: 'room/quick_match', data: { success: false, error: '添加AI失败: ' + result.error } });
         return;
@@ -471,7 +579,7 @@ export class WebSocketHandler {
         room: {
           id: room.roomId,
           roomCode: room.roomCode,
-          type: 1,
+          type: (room as any).roomType,
           players: room.getPlayers()
         },
         dealt: dealtData
@@ -505,8 +613,9 @@ export class WebSocketHandler {
     const hands: Card[][] = [];
     const landlordCards = room.getLandlordCards();
     const landlordId = room.getLandlordId();
+    const playerCount = room.getPlayers().length;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < playerCount; i++) {
       const playerHand = room.getPlayerHand(i);
       hands.push(playerHand || []);
     }
@@ -528,7 +637,7 @@ export class WebSocketHandler {
         room: {
           id: (room as any).roomId,
           roomCode: (room as any).roomCode,
-          type: 1,
+          type: (room as any).roomType,
           players: room.getPlayers()
         },
         dealt: dealtData
@@ -552,7 +661,7 @@ export class WebSocketHandler {
               room: {
                 id: (room as any).roomId,
                 roomCode: (room as any).roomCode,
-                type: 1,
+                type: (room as any).roomType,
                 players: room.getPlayers()
               },
               dealt: {
@@ -644,6 +753,27 @@ export class WebSocketHandler {
     }
   }
 
+  /** 处理明地主选择地主牌 */
+  private async handleLandlordCardsSelected(ws: WebSocket, client: WSClient, data: { cardId: number }): Promise<void> {
+    if (!client.roomCode || client.playerIndex === null) return;
+
+    const room = this.gameRooms.findByRoomCode(client.roomCode);
+    if (!room) return;
+
+    // 验证是否是该玩家的回合（应该是明地主）
+    if (room.getCurrentPlayerId() !== client.playerIndex) {
+      this.send(ws, { type: 'game/landlord_cards_selected', data: { success: false, error: '不是你的回合' } });
+      return;
+    }
+
+    const result = (room as any).landlordCardsSelected(client.userId, data.cardId);
+
+    if (!result.success) {
+      this.send(ws, { type: 'game/landlord_cards_selected', data: { success: false, error: result.error } });
+    }
+    // 成功时，事件会通过 room listener 广播
+  }
+
   /** 处理客户端准备就绪（动画播放完成） */
   private async handleGameReady(ws: WebSocket, client: WSClient): Promise<void> {
     if (!client.roomCode || client.playerIndex === null) return;
@@ -660,6 +790,7 @@ export class WebSocketHandler {
       // 晚客户端：发送当前游戏状态，然后直接发送当前的 turn
       const hands = (room as any).hands;
       const landlordId = (room as any).landlordId as number;
+      const hiddenLandlordIds = (room as any).hiddenLandlordIds as number[];
       const landlordCards = (room as any).landlordCards as Card[];
       const playerIndex = client.playerIndex;
 
@@ -673,15 +804,18 @@ export class WebSocketHandler {
         data: {
           hand: handCards,
           landlordCards: landlordCards,
-          landlordId: landlordId
+          landlordId: landlordId,
+          hiddenLandlordIds: hiddenLandlordIds || []
         }
       });
 
-      // 发送地主选择结果
-      if (landlordId >= 0) {
+      // 发送地主选择结果（仅当地主牌已选择时，即 landlordCardId > 0）
+      // 在6人场，如果AI还未选择地主牌，landlordCardId=-1，此时不发送 landlord_selected
+      const landlordCardId = (room as any).landlordCardId as number;
+      if (landlordId >= 0 && landlordCardId > 0) {
         this.send(ws, {
           type: 'game/landlord_selected',
-          data: { landlordId }
+          data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId }
         });
       }
 
@@ -699,11 +833,19 @@ export class WebSocketHandler {
     }
 
     // 游戏还在发牌阶段（status === 'dealing'），正常流程
+    // 只有在等待客户端准备时才发送 game/dealt（首次发牌动画播放中）
+    // restartGame() 之后 waitingForClientReady 已被设为 false，不重复发送
+    if (!waitingForClientReady) {
+      console.log(`[handleGameReady] waitingForClientReady=false, skipping game/dealt`);
+      return;
+    }
+
     // hands 是 Hand[] 数组，每个 Hand 有一个 cards 属性
     const hands = (room as any).hands;
     console.log(`[handleGameReady] hands check:`, hands, 'length:', hands?.length, 'hand[0].cards:', hands?.[0]?.cards?.length);
     if (hands && hands.length > 0 && hands[0]?.cards?.length > 0) {
       const landlordId = (room as any).landlordId as number;
+      const hiddenLandlordIds = (room as any).hiddenLandlordIds as number[];
       const landlordCards = (room as any).landlordCards as Card[];
       const playerIndex = client.playerIndex;
 
@@ -717,15 +859,18 @@ export class WebSocketHandler {
         data: {
           hand: handCards,
           landlordCards: landlordCards,
-          landlordId: landlordId
+          landlordId: landlordId,
+          hiddenLandlordIds: hiddenLandlordIds || []
         }
       });
 
-      // 发送地主选择结果
-      if (landlordId >= 0) {
+      // 发送地主选择结果（仅当地主牌已选择时，即 landlordCardId > 0）
+      // 在6人场，如果AI还未选择地主牌，landlordCardId=-1，此时不发送 landlord_selected
+      const landlordCardId = (room as any).landlordCardId as number;
+      if (landlordId >= 0 && landlordCardId > 0) {
         this.send(ws, {
           type: 'game/landlord_selected',
-          data: { landlordId }
+          data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId }
         });
       }
     }
@@ -750,10 +895,10 @@ export class WebSocketHandler {
       });
     });
 
-    room.on('game_dealt', (data: { hands: any[], landlordCards: any[], landlordId: number }) => {
+    room.on('game_dealt', (data: { hands: any[], landlordCards: any[], landlordId: number, hiddenLandlordIds: number[] }) => {
       // 向每个玩家发送他们的手牌
       const players = room.getPlayers();
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < players.length; i++) {
         const player = players[i];
         if (player) {
           const ws = this.getClientWsByUserId(player.id);
@@ -767,7 +912,8 @@ export class WebSocketHandler {
               data: {
                 hand: handCards,
                 landlordCards: data.landlordCards,
-                landlordId: data.landlordId
+                landlordId: data.landlordId,
+                hiddenLandlordIds: data.hiddenLandlordIds || []
               }
             });
           }
@@ -775,10 +921,10 @@ export class WebSocketHandler {
       }
     });
 
-    room.on('landlord_selected', (landlordId: number) => {
+    room.on('landlord_selected', (data: { landlordId: number, hiddenLandlordIds: number[], landlordCardId: number }) => {
       this.broadcastToRoom(room.roomCode, {
         type: 'game/landlord_selected',
-        data: { landlordId }
+        data: { landlordId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds, landlordCardId: data.landlordCardId }
       });
     });
 
@@ -789,13 +935,14 @@ export class WebSocketHandler {
       });
     });
 
-    room.on('cards_played', (data: { playerId: number, cards: any[] }) => {
-      console.log(`[BROADCAST cards_played] playerId=${data.playerId}, cards=${data.cards.map((c: any) => `${c.id}(rank${c.rank})`).join(',')}`);
+    room.on('cards_played', (data: { playerId: number, cards: any[], pattern: any }) => {
+      console.log(`[BROADCAST cards_played] playerId=${data.playerId}, cards=${data.cards.map((c: any) => `${c.id}(rank${c.rank})`).join(',')}, pattern=${data.pattern}`);
       this.broadcastToRoom(room.roomCode, {
         type: 'game/action',
         data: {
           playerId: data.playerId,
           cards: data.cards, // 发送完整的卡牌对象
+          pattern: data.pattern, // 发送牌型信息
           actionType: 'play'
         }
       });
@@ -819,7 +966,7 @@ export class WebSocketHandler {
       });
     });
 
-    room.on('game_over', (result: { winnerId: number, isLandlordWin: boolean }) => {
+    room.on('game_over', (result: { winnerId: number, isLandlordWin: boolean, winnerNames: string[], loserNames: string[] }) => {
       this.broadcastToRoom(room.roomCode, {
         type: 'game/over',
         data: result

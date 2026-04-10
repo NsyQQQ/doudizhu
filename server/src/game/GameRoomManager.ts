@@ -12,12 +12,12 @@ export class GameRoomManager {
     private nextRoomId: number = 1;
 
     /** 创建房间 */
-    async createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>): Promise<GameRoom> {
+    async createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>, roomType: number = 1): Promise<GameRoom> {
         // 生成6位房间号
         const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
         const roomId = this.nextRoomId++;
 
-        const room = new GameRoom(roomCode, roomId);
+        const room = new GameRoom(roomCode, roomId, roomType);
         room.addPlayer(hostInfo);
 
         this.rooms.set(roomCode, room);
@@ -25,7 +25,7 @@ export class GameRoomManager {
 
         // 持久化到数据库
         try {
-            const dbRoom = await roomService.createRoom(hostId, 1);
+            const dbRoom = await roomService.createRoom(hostId, roomType);
             if (dbRoom) {
                 console.log(`[GameRoomManager] Room ${roomCode} saved to database, id=${dbRoom.id}`);
             }
@@ -97,8 +97,11 @@ export class GameRoomManager {
         // 更新数据库
         this.syncRoomToDatabase(room).catch(err => console.error('[GameRoomManager] Failed to update room:', err));
 
-        // 如果房间空了，销毁
-        if (room.getPlayerCount() === 0) {
+        // 检查是否还有真实玩家（人类非AI）
+        const hasHumanPlayer = room.getPlayers().some(p => p !== null && !p.isAI);
+        if (!hasHumanPlayer) {
+            // 没有真实玩家了，销毁房间
+            console.log(`[leaveRoom] No human players left in room ${roomCode}, destroying`);
             this.destroyRoom(roomCode);
         }
     }
@@ -131,19 +134,64 @@ export class GameRoomManager {
 
     /** 同步房间数据到数据库 */
     private async syncRoomToDatabase(room: GameRoom): Promise<void> {
-        const players = room.getPlayers().map(p => ({
-            id: p!.id,
-            openid: p!.openid,
-            nickname: p!.nickname || '未知',
-            avatar: p!.avatar || '',
-            isReady: p!.isReady,
-            isHost: p!.isHost,
-            isAI: p!.isAI,
-            isEmpty: p === null
-        }));
+        const players = room.getPlayers().map(p => p === null ? {
+            id: 0,
+            openid: '',
+            nickname: '',
+            avatar: '',
+            isReady: false,
+            isHost: false,
+            isAI: false,
+            isEmpty: true
+        } : {
+            id: p.id,
+            openid: p.openid,
+            nickname: p.nickname || '未知',
+            avatar: p.avatar || '',
+            isReady: p.isReady,
+            isHost: p.isHost,
+            isAI: p.isAI,
+            isEmpty: false
+        });
 
         await roomService.updatePlayers(room.roomId, players);
         await roomService.updateStatus(room.roomId, room.getStatus() as any);
+    }
+
+    /** 清理孤儿房间（游戏中或已结束但没有玩家的房间） */
+    async cleanupOrphanedRooms(): Promise<void> {
+        try {
+            // 从数据库获取所有房间
+            const dbRooms = await roomService.getAllRooms();
+            for (const dbRoom of dbRooms) {
+                const room = this.findByRoomId(dbRoom.id);
+                // 如果内存中没有这个房间，说明是孤儿，删除
+                if (!room) {
+                    console.log(`[GameRoomManager] Cleaning up orphaned room from DB: ${dbRoom.id}`);
+                    await roomService.deleteRoom(dbRoom.id);
+                    continue;
+                }
+                // 如果房间已结束且没有玩家，销毁
+                if (room.getStatus() === 'ended' && room.getPlayerCount() === 0) {
+                    console.log(`[GameRoomManager] Destroying ended room with no players: ${room.roomCode}`);
+                    this.destroyRoom(room.roomCode);
+                }
+                // 如果房间还在等待但没有玩家，也销毁（孤儿房间）
+                if (room.getStatus() === 'waiting' && room.getPlayerCount() === 0) {
+                    console.log(`[GameRoomManager] Destroying waiting room with no players: ${room.roomCode}`);
+                    this.destroyRoom(room.roomCode);
+                }
+            }
+        } catch (error) {
+            console.error('[GameRoomManager] Failed to cleanup orphaned rooms:', error);
+        }
+    }
+
+    /** 启动定期清理任务 */
+    startPeriodicCleanup(intervalMs: number = 60000): void {
+        setInterval(() => {
+            this.cleanupOrphanedRooms();
+        }, intervalMs);
     }
 
     /** 获取所有房间 */

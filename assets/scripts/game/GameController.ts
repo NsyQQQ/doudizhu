@@ -17,7 +17,7 @@ const { ccclass, property } = _decorator;
 @ccclass('GameController')
 export class GameController extends Component {
     private state: string = GameState.READY;
-    private players: { id: number, hand: Hand, isLandlord: boolean }[] = [];
+    private players: { id: number, hand: Hand, isLandlord: boolean, isHuman: boolean, avatar: string }[] = [];
     private landlordCards: Card[] = [];
     private landlordId: number = 0;
     private lastMove: Move | null = null;
@@ -58,11 +58,6 @@ export class GameController extends Component {
         this.onPassRequestedHandler = this.onPassRequested.bind(this);
         EventBus.on(GameEvents.PLAY_REQUESTED, this.onPlayRequestedHandler);
         EventBus.on(GameEvents.PASS_REQUESTED, this.onPassRequestedHandler);
-    }
-
-    /** 开始游戏（远程模式下由服务器触发，此方法为空） */
-    public startGame(): void {
-        // 远程模式下游戏开始由服务器控制，这里不做任何事
     }
 
     private setupWebSocketListeners(): void {

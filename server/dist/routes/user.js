@@ -50,6 +50,30 @@ router.get('/:id', async (req, res) => {
         res.status(500).json({ error: 'Get user info failed' });
     }
 });
+/** 检查账号是否存在 */
+router.get('/check/:openid', async (req, res) => {
+    try {
+        const { openid } = req.params;
+        const user = await UserService_1.userService.findByOpenid(openid);
+        if (!user) {
+            res.json({ exists: false });
+            return;
+        }
+        res.json({
+            exists: true,
+            data: {
+                id: user.id,
+                openid: user.openid,
+                nickname: user.nickname,
+                avatar: user.avatar
+            }
+        });
+    }
+    catch (error) {
+        console.error('[UserRoutes] /check/:openid error:', error);
+        res.status(500).json({ error: 'Check failed' });
+    }
+});
 /** 更新用户信息 */
 router.put('/:id', async (req, res) => {
     try {

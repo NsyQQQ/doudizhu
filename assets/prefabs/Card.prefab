@@ -406,7 +406,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "Sprite",
+    "_name": "faceSprite",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -1262,6 +1262,9 @@
     },
     "faceUp": {
       "__id__": 8
+    },
+    "faceSprite": {
+      "__id__": 18
     },
     "rankLabel": {
       "__id__": 24

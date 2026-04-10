@@ -7,17 +7,21 @@ exports.createDeck = createDeck;
 exports.shuffle = shuffle;
 exports.deal = deal;
 const types_1 = require("./types");
-/** 创建一副54张牌 */
-function createDeck() {
+/** 创建指定数量的牌组
+ * @param deckCount 牌组数量，默认为1（单副牌54张），3副牌为162张
+ */
+function createDeck(deckCount = 1) {
     const deck = [];
-    let id = 0;
-    for (let suit = types_1.CardSuit.SPADE; suit <= types_1.CardSuit.DIAMOND; suit++) {
-        for (let rank = types_1.CardRank.THREE; rank <= types_1.CardRank.TWO; rank++) {
-            deck.push({ id: id++, suit, rank });
+    for (let deckIdx = 0; deckIdx < deckCount; deckIdx++) {
+        let id = deckIdx * 1000; // 每副牌ID偏移1000，避免ID冲突
+        for (let suit = types_1.CardSuit.SPADE; suit <= types_1.CardSuit.DIAMOND; suit++) {
+            for (let rank = types_1.CardRank.THREE; rank <= types_1.CardRank.TWO; rank++) {
+                deck.push({ id: id++, suit, rank });
+            }
         }
+        deck.push({ id: id++, suit: types_1.CardSuit.JOKER, rank: types_1.CardRank.SMALL_JOKER });
+        deck.push({ id: id++, suit: types_1.CardSuit.JOKER, rank: types_1.CardRank.BIG_JOKER });
     }
-    deck.push({ id: id++, suit: types_1.CardSuit.JOKER, rank: types_1.CardRank.SMALL_JOKER });
-    deck.push({ id: id++, suit: types_1.CardSuit.JOKER, rank: types_1.CardRank.BIG_JOKER });
     return deck;
 }
 /** Fisher-Yates 洗牌 */

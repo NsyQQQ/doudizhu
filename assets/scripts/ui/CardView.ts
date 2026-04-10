@@ -15,6 +15,9 @@ export class CardView extends Component {
     @property(Node)
     faceUp: Node = null!;
 
+    @property(Sprite)
+    faceSprite: Sprite = null!;
+
     @property(Label)
     rankLabel: Label = null!;
 
@@ -29,10 +32,15 @@ export class CardView extends Component {
 
     private _card: Card | null = null;
     private _isSelected: boolean = false;
+    private _isHighlighted: boolean = false;
     private _originalY: number = 0;
+    private _originalColor: Color = Color.WHITE.clone();
 
     start() {
         this._originalY = this.node.position.y;
+        if (this.faceSprite) {
+            this._originalColor = this.faceSprite.color.clone();
+        }
     }
 
     /** 设置牌数据 */
@@ -133,6 +141,18 @@ export class CardView extends Component {
             const targetY = selected ? 20 : 0;
             this.node.setPosition(currentX, targetY);
         }
+        this.setHighlight(selected);
+    }
+
+    /** 设置高亮效果 */
+    setHighlight(highlight: boolean): void {
+        this._isHighlighted = highlight;
+        const sprite = this.faceSprite.node.getComponent(Sprite);
+        if (highlight) {
+            sprite.color = new Color(255, 215, 0); // 金色高亮
+        } else {
+            sprite.color = this._originalColor.clone();
+        }
     }
 
     /** 是否选中 */
@@ -149,9 +169,15 @@ export class CardView extends Component {
     reset(): void {
         this._card = null;
         this._isSelected = false;
+        this._isHighlighted = false;
         this.setFaceUp(false);
         if (this.node) {
             this.node.setPosition(this.node.position.x, this._originalY);
+        }
+
+        const sprite = this.faceSprite.node.getComponent(Sprite);
+        if (sprite) {
+            sprite.color = this._originalColor.clone();
         }
     }
 }

@@ -22,8 +22,8 @@ export class HandView extends Component {
     public hand: Hand | null = null;
     private isInteractive: boolean = true;
 
-    private readonly CARD_SPACING = 50;
-    private readonly CARD_WIDTH = 70;
+    private readonly CARD_SPACING = 47;
+    private readonly CARD_WIDTH = 100;
 
     start() {
         EventBus.on(GameEvents.HINT_REQUESTED, this.onHintRequested.bind(this));

@@ -18,6 +18,10 @@ export declare class RoomService {
     removePlayer(roomCode: string, playerId: number): Promise<Room | null>;
     /** 删除房间 */
     deleteRoom(roomId: number): Promise<boolean>;
+    /** 清空所有房间 */
+    deleteAllRooms(): Promise<void>;
+    /** 获取所有房间 */
+    getAllRooms(): Promise<Room[]>;
     /** 保存游戏记录 */
     saveGameRecord(record: Omit<GameRecord, 'id' | 'create_time'>): Promise<number | null>;
 }

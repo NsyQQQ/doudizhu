@@ -1,8 +1,16 @@
 /**
  * 游戏房间 - 服务端游戏状态管理
  */
-import { Card, GamePlayer, GameStatus, GameOverResult, Move } from './types';
+import { Card, GamePlayer, GameStatus, GameOverResult, Move, PatternResult } from './types';
 import { EventEmitter } from 'events';
+/** 获取房间类型对应的玩家数量 */
+export declare function getPlayerCountByRoomType(roomType: number): number;
+/** 获取房间类型对应的牌组数量 */
+export declare function getDeckCountByRoomType(roomType: number): number;
+/** 获取房间类型对应的每人手牌数量 */
+export declare function getCardsPerPlayerByRoomType(roomType: number): number;
+/** 获取房间类型对应的底牌数量 */
+export declare function getLandlordCardsByRoomType(roomType: number): number;
 export type GameRoomEventType = 'player_ready' | 'player_unready' | 'game_start' | 'game_dealt' | 'landlord_selected' | 'turn_changed' | 'cards_played' | 'player_passed' | 'round_cleared' | 'game_over' | 'player_disconnected';
 export interface GameRoomEvents {
     player_ready: (playerId: number) => void;
@@ -13,11 +21,16 @@ export interface GameRoomEvents {
         landlordCards: Card[];
         landlordId: number;
     }) => void;
-    landlord_selected: (landlordId: number) => void;
+    landlord_selected: (data: {
+        landlordId: number;
+        hiddenLandlordIds: number[];
+        landlordCardId: number;
+    }) => void;
     turn_changed: (playerId: number) => void;
     cards_played: (data: {
         playerId: number;
         cards: Card[];
+        pattern: PatternResult;
     }) => void;
     player_passed: (playerId: number) => void;
     round_cleared: () => void;
@@ -27,10 +40,13 @@ export interface GameRoomEvents {
 export declare class GameRoom extends EventEmitter {
     readonly roomCode: string;
     readonly roomId: number;
+    readonly roomType: number;
     private players;
     private status;
     private landlordId;
+    private hiddenLandlordIds;
     private landlordCards;
+    private landlordCardId;
     private hands;
     private currentPlayerId;
     private lastMove;
@@ -40,11 +56,14 @@ export declare class GameRoom extends EventEmitter {
     private quickMatchMode;
     private scheduledPlayerId;
     private waitingForClientReady;
-    constructor(roomCode: string, roomId: number);
+    private turnNotified;
+    private firstMoveDone;
+    private finishedFarmerCount;
+    constructor(roomCode: string, roomId: number, roomType?: number);
     /** 设置快速匹配模式 */
     setQuickMatchMode(enabled: boolean): void;
     /** 添加玩家到房间 */
-    addPlayer(player: Omit<GamePlayer, 'hand' | 'isLandlord'>): number | null;
+    addPlayer(player: Omit<GamePlayer, 'hand' | 'isLandlord' | 'isHiddenLandlord'>): number | null;
     /** 移除玩家 */
     removePlayer(playerId: number): void;
     /** 添加AI玩家 */
@@ -72,13 +91,22 @@ export declare class GameRoom extends EventEmitter {
     allPlayersPresent(): boolean;
     /** 开始游戏 */
     startGame(): boolean;
+    /** 重开游戏（游戏结束后再来一局） */
+    restartGame(): boolean;
     /** 发牌 */
     private dealCards;
+    /** 明地主选择地主牌 */
+    landlordCardsSelected(playerId: number, cardId: number): {
+        success: boolean;
+        error?: string;
+    };
     /** 玩家出牌 */
     playCards(playerId: number, cardIds: number[]): {
         success: boolean;
         error?: string;
     };
+    /** 获取下一个还有手牌的玩家索引 */
+    private getNextPlayerWithCards;
     /** 玩家跳过 */
     pass(playerId: number): {
         success: boolean;
@@ -86,6 +114,8 @@ export declare class GameRoom extends EventEmitter {
     };
     /** 检查一轮是否结束 */
     private checkRoundClear;
+    /** 获取胜利和失败玩家名单 */
+    private getWinnerAndLoserNames;
     /** 获取下一个有玩家的位置 */
     private getNextNonEmptyPlayer;
     /** 调度 AI 出牌 */

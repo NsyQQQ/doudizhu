@@ -11,6 +11,7 @@ export interface Player {
     avatar: string;
     hand: Hand;
     isLandlord: boolean;
+    isHiddenLandlord: boolean;
     isHuman: boolean;
 }
 
@@ -22,6 +23,7 @@ export function createPlayer(id: number, name: string, isHuman: boolean, avatar:
         avatar,
         hand: new Hand(),
         isLandlord: false,
+        isHiddenLandlord: false,
         isHuman,
     };
 }

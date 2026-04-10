@@ -22,6 +22,7 @@ export enum WsMessageType {
     GAME_START = 'game/start',
     GAME_DEALT = 'game/dealt',
     GAME_LANDLORD_SELECTED = 'game/landlord_selected',
+    GAME_LANDLORD_CARDS_SELECTED = 'game/landlord_cards_selected',
     GAME_TURN = 'game/turn',
     GAME_ACTION = 'game/action',
     GAME_PASS = 'game/pass',
@@ -114,7 +115,7 @@ export class WebSocketManager extends EventEmitter {
     /** 自动连接服务器 */
     private autoConnect(): void {
         // 服务器地址配置
-        const serverUrl = 'ws://192.168.31.12:3000';
+        const serverUrl = 'ws://localhost:3000';
         console.log('[WebSocket] Auto connecting to:', serverUrl);
         this.connect(serverUrl);
     }

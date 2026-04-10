@@ -4,7 +4,7 @@
 
 import { _decorator, Component, Button, Label, Node, Prefab, instantiate } from 'cc';
 import { director } from 'cc';
-import { CURRENT_ROOM_TYPE, CURRENT_ROOM_CODE, CURRENT_PLAYER_INDEX, CURRENT_ROOM_PLAYERS, setCurrentRoomPlayers } from '../shared/Constants';
+import { CURRENT_ROOM_TYPE, CURRENT_ROOM_CODE, CURRENT_PLAYER_INDEX, CURRENT_ROOM_PLAYERS, setCurrentRoomPlayers, ROOM_PLAYER_COUNTS } from '../shared/Constants';
 import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
 import { PlayerInfoItemCtrl } from './PlayerInfoItemCtrl';
 
@@ -13,9 +13,9 @@ const ROOM_NAMES: Record<number, string> = {
     1: '三人斗地主',
     2: '四人扔炸弹',
     3: '六人扔炸弹',
-    4: '六人斗地主',
-    5: '七人斗地主',
-    6: '八人斗地主',
+    4: '五人斗地主',
+    5: '六人斗地主',
+    6: '七人斗地主',
 };
 
 const { ccclass, property } = _decorator;
@@ -91,9 +91,10 @@ export class RoomCtrl extends Component {
 
         this.onGameStartHandler = (data: any) => {
             if (data.success) {
-                director.loadScene('GameTable');
+                const sceneName = CURRENT_ROOM_TYPE === 5 ? 'GameTable2' : 'GameTable';
+                director.loadScene(sceneName);
             } else {
-                
+
                 this.isLoading = false;
             }
         };
@@ -124,7 +125,7 @@ export class RoomCtrl extends Component {
     }
 
     private updatePlayers(players: any[]): void {
-        const maxPlayers = 3;
+        const maxPlayers = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
         this.playerInfos = []; // 先清空
 
         // 同步更新 CURRENT_ROOM_PLAYERS
@@ -242,7 +243,7 @@ export class RoomCtrl extends Component {
     }
 
     private initEmptySlots(): void {
-        const maxPlayers = 3;
+        const maxPlayers = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
         this.playerInfos = [];
 
         // 如果有保存的玩家数据，使用保存的数据

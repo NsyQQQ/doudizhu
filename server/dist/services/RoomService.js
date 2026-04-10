@@ -146,6 +146,31 @@ class RoomService {
             throw error;
         }
     }
+    /** 清空所有房间 */
+    async deleteAllRooms() {
+        try {
+            await database_1.pool.query('DELETE FROM rooms');
+            console.log('[RoomService] All rooms deleted');
+        }
+        catch (error) {
+            console.error('[RoomService] deleteAllRooms error:', error);
+            throw error;
+        }
+    }
+    /** 获取所有房间 */
+    async getAllRooms() {
+        try {
+            const [rows] = await database_1.pool.query('SELECT * FROM rooms');
+            return rows.map(row => ({
+                ...row,
+                players: JSON.parse(row.players)
+            }));
+        }
+        catch (error) {
+            console.error('[RoomService] getAllRooms error:', error);
+            throw error;
+        }
+    }
     /** 保存游戏记录 */
     async saveGameRecord(record) {
         try {

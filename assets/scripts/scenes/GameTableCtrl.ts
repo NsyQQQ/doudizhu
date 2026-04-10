@@ -438,9 +438,6 @@ export class GameTableCtrl extends Component {
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '发牌中...';
         }
-        if (this.gameController) {
-            this.gameController.startGame();
-        }
     }
 
     private onGameStarted(): void {
@@ -708,11 +705,15 @@ export class GameTableCtrl extends Component {
         wsManager.send(WsMessageType.GAME_PASS);
     }
 
-    private onGameOver(data: { winnerId: number; isLandlordWin: boolean }): void {
+    private onGameOver(data: { winnerId: number; isLandlordWin: boolean; winnerNames?: string[]; loserNames?: string[] }): void {
         const playerNames = this.getPlayerNames();
 
+        // 构建胜利/失败字符串
+        const winnerText = data.winnerNames ? data.winnerNames.join('、') + '胜利！' : `${playerNames[data.winnerId]}胜利！`;
+        const loserText = data.loserNames ? data.loserNames.join('、') + '失败！' : '';
+
         if (this.resultLabel) {
-            this.resultLabel.string = `${playerNames[data.winnerId]}胜利！`;
+            this.resultLabel.string = winnerText + '\n' + loserText;
             this.resultLabel.node.active = true;
         }
 
@@ -761,11 +762,15 @@ export class GameTableCtrl extends Component {
 
     /** 退出游戏 */
     private onExitClicked(): void {
+        const wsManager = WebSocketManager.getInstance();
+        wsManager.send(WsMessageType.ROOM_LEAVE);
         director.loadScene('Lobby');
     }
 
     /** 返回房间（解散房间） */
     private onBackClicked(): void {
+        const wsManager = WebSocketManager.getInstance();
+        wsManager.send(WsMessageType.ROOM_LEAVE);
         director.loadScene('Lobby');
     }
 

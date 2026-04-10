@@ -21,12 +21,16 @@ export declare class WebSocketHandler {
     private handleRemoveAI;
     /** 快速匹配 - 创建房间并自动添加AI后开始游戏 */
     private handleQuickMatch;
+    /** 处理再来一局（房间内重置游戏） */
+    private handleRoomRestart;
     /** 开始游戏 */
     private handleStartGame;
     /** 处理出牌 */
     private handleGameAction;
     /** 处理跳过 */
     private handleGamePass;
+    /** 处理明地主选择地主牌 */
+    private handleLandlordCardsSelected;
     /** 处理客户端准备就绪（动画播放完成） */
     private handleGameReady;
     /** 设置房间事件监听 */
