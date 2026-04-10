@@ -5,9 +5,9 @@ import { testConnection } from './db/database';
 import { wsHandler } from './websocket/WebSocketHandler';
 import { userRoutes } from './routes/user';
 import { roomRoutes } from './routes/room';
+import { SERVER_CONFIG } from './config';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // 中间件
 app.use(cors());
@@ -47,7 +47,8 @@ async function start() {
     console.error('[Server] Database connection failed, please check your MySQL configuration');
   }
 
-  server.listen(PORT, () => {
+  server.listen(SERVER_CONFIG.port, () => {
+    console.log(`[Server] Running on port ${SERVER_CONFIG.port} (${SERVER_CONFIG.isProduction ? 'Production' : 'Development'})`);
   });
 }
 

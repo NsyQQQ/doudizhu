@@ -707,11 +707,13 @@ class WebSocketHandler {
                     hiddenLandlordIds: hiddenLandlordIds || []
                 }
             });
-            // 发送地主选择结果
-            if (landlordId >= 0) {
+            // 发送地主选择结果（仅当地主牌已选择时，即 landlordCardId > 0）
+            // 在6人场，如果AI还未选择地主牌，landlordCardId=-1，此时不发送 landlord_selected
+            const landlordCardId = room.landlordCardId;
+            if (landlordId >= 0 && landlordCardId > 0) {
                 this.send(ws, {
                     type: 'game/landlord_selected',
-                    data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId: room.landlordCardId || -1 }
+                    data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId }
                 });
             }
             // 直接发送当前回合（不通过 clientReady 广播）
@@ -753,11 +755,13 @@ class WebSocketHandler {
                     hiddenLandlordIds: hiddenLandlordIds || []
                 }
             });
-            // 发送地主选择结果
-            if (landlordId >= 0) {
+            // 发送地主选择结果（仅当地主牌已选择时，即 landlordCardId > 0）
+            // 在6人场，如果AI还未选择地主牌，landlordCardId=-1，此时不发送 landlord_selected
+            const landlordCardId = room.landlordCardId;
+            if (landlordId >= 0 && landlordCardId > 0) {
                 this.send(ws, {
                     type: 'game/landlord_selected',
-                    data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId: room.landlordCardId || -1 }
+                    data: { landlordId, hiddenLandlordIds: hiddenLandlordIds || [], landlordCardId }
                 });
             }
         }

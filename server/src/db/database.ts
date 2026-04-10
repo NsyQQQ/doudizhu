@@ -1,11 +1,12 @@
 import mysql, { Pool, PoolOptions } from 'mysql2/promise';
+import { DB_CONFIG } from '../config';
 
 const config: PoolOptions = {
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '123456',
-  database: process.env.DB_NAME || 'doudizhu',
+  host: DB_CONFIG.host,
+  port: DB_CONFIG.port,
+  user: DB_CONFIG.user,
+  password: DB_CONFIG.password,
+  database: DB_CONFIG.database,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

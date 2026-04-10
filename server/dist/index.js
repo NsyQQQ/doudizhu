@@ -10,8 +10,8 @@ const database_1 = require("./db/database");
 const WebSocketHandler_1 = require("./websocket/WebSocketHandler");
 const user_1 = require("./routes/user");
 const room_1 = require("./routes/room");
+const config_1 = require("./config");
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 3000;
 // 中间件
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -42,7 +42,8 @@ async function start() {
     if (!dbConnected) {
         console.error('[Server] Database connection failed, please check your MySQL configuration');
     }
-    server.listen(PORT, () => {
+    server.listen(config_1.SERVER_CONFIG.port, () => {
+        console.log(`[Server] Running on port ${config_1.SERVER_CONFIG.port} (${config_1.SERVER_CONFIG.isProduction ? 'Production' : 'Development'})`);
     });
 }
 start();

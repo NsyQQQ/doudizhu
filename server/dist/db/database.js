@@ -6,12 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.pool = void 0;
 exports.testConnection = testConnection;
 const promise_1 = __importDefault(require("mysql2/promise"));
+const config_1 = require("../config");
 const config = {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '123456',
-    database: process.env.DB_NAME || 'doudizhu',
+    host: config_1.DB_CONFIG.host,
+    port: config_1.DB_CONFIG.port,
+    user: config_1.DB_CONFIG.user,
+    password: config_1.DB_CONFIG.password,
+    database: config_1.DB_CONFIG.database,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,

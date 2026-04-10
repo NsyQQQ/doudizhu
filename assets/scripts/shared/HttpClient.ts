@@ -2,7 +2,9 @@
  * HTTP 客户端工具
  */
 
-const BASE_URL = 'http://localhost:3000';
+import { SERVER_CONFIG } from './Constants';
+
+const BASE_URL = SERVER_CONFIG.HTTP_URL;
 
 interface RequestOptions {
     method?: string;

@@ -3,6 +3,7 @@
  */
 
 import { EventEmitter } from '../shared/EventEmitter';
+import { SERVER_CONFIG } from '../shared/Constants';
 
 /** WebSocket 消息类型 */
 export enum WsMessageType {
@@ -115,7 +116,7 @@ export class WebSocketManager extends EventEmitter {
     /** 自动连接服务器 */
     private autoConnect(): void {
         // 服务器地址配置
-        const serverUrl = 'ws://localhost:3000';
+        const serverUrl = SERVER_CONFIG.WS_URL;
         console.log('[WebSocket] Auto connecting to:', serverUrl);
         this.connect(serverUrl);
     }

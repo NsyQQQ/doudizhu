@@ -2,6 +2,20 @@
  * 游戏常量
  */
 
+// ==================== 环境配置 ====================
+// true = 云服务器环境, false = 本地开发环境
+const IS_PRODUCTION = true;
+
+// ==================== 服务器配置 ====================
+export const SERVER_CONFIG = IS_PRODUCTION ? {
+    HTTP_URL: 'https://duolaf.xyz',
+    WS_URL: 'wss://duolaf.xyz',
+} : {
+    HTTP_URL: 'http://localhost:3000',
+    WS_URL: 'ws://localhost:3000',
+};
+
+// ==================== 游戏配置 ====================
 /** 玩家数量 */
 export const PLAYER_COUNT = 3;
 

@@ -349,6 +349,7 @@ export class GameRoom extends EventEmitter {
         // 重置游戏计数
         this.finishedFarmerCount = 0;
 
+        console.log(`[dealCards] roomType=${this.roomType}, isSixPlayerMode=${isSixPlayerMode(this.roomType)}, playerCount=${this.players.length}`);
         const deckCount = getDeckCountByRoomType(this.roomType);
         const cardsPerPlayer = getCardsPerPlayerByRoomType(this.roomType);
 
