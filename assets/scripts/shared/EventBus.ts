@@ -62,4 +62,6 @@ export const GameEvents = {
     HINT_REQUESTED: 'ui:hintRequested',
     CARD_DEALT: 'game:cardDealt',
     SELECT_LANDLORD_CARDS: 'ui:selectLandlordCards',
+    FARMER_REVEAL: 'game:farmerReveal',
+    HIDDEN_LANDLORD_REVEALED: 'game:hiddenLandlordRevealed',
 } as const;

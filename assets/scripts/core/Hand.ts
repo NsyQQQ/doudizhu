@@ -10,12 +10,12 @@ export class Hand {
     private _cards: Card[] = [];
 
     constructor(cards: Card[] = []) {
-        this._cards = [...cards];
+        this._cards = cards ? [...cards] : [];
     }
 
     /** 获取所有牌 */
     get cards(): Card[] {
-        return [...this._cards];
+        return this._cards ? [...this._cards] : [];
     }
 
     /** 牌数量 */
@@ -95,7 +95,7 @@ export class Hand {
 
     /** 获取所有不同点数 */
     getDistinctRanks(): CardRank[] {
-        return [...new Set(this._cards.map(c => c.rank))];
+        return Array.from(new Set(this._cards.map(c => c.rank)));
     }
 
     /** 检查是否有小王和大王（王炸） */

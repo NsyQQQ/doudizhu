@@ -17,8 +17,9 @@ import { EventBus, GameEvents } from '../shared/EventBus';
 import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
 import { CURRENT_ROOM_ID, QUICK_MATCH_DEALT, clearQuickMatchDealt, CURRENT_ROOM_PLAYERS, CURRENT_PLAYER_INDEX, CURRENT_USER_NAME, CURRENT_USER_AVATAR, setCurrentRoomPlayers, ROOM_PLAYER_COUNTS, ROOM_CARDS_PER_PLAYER, CURRENT_ROOM_TYPE } from '../shared/Constants';
 import { RoomManager } from '../shared/RoomManager';
-import { Card, CardSuit, CardRank } from '../core/Card';
+import { Card, CardSuit, CardRank, PatternResult, decodeCardId } from '../core/Card';
 import { Hand } from '../core/Hand';
+import { AudioManager } from '../shared/AudioManager';
 
 const { ccclass, property } = _decorator;
 
@@ -35,6 +36,9 @@ export class GameTableCtrl2 extends Component {
 
     @property(Label)
     gameStatusLabel: Label = null!;
+
+    @property(Label)
+    PlayerStatusLabel: Label = null!;
 
     @property(Label)
     resultLabel: Label = null!;
@@ -84,13 +88,16 @@ export class GameTableCtrl2 extends Component {
 
     private gameController: GameController2 = null!;
     private playerHand: Card[] = [];  // 保存玩家手牌
+    private playerCardCounts: number[] = [];  // 所有玩家手牌数
     private playerCount: number = 6;
     private bombCount: number = 0;  // 炸弹数量
     private isSelectingLandlordCards: boolean = false;  // 是否在选择地主牌阶段
     private landlordSelectionDone: boolean = false;  // 地主是否已完成选牌（暗地主是否已确定）
-    private _pendingLandlordCardId: number = -1;  // 待翻转的地主牌ID
     private landlordCardNode: Node | null = null;  // 地主牌节点
     private isFlippingLandlordCard: boolean = false;  // 是否正在翻转地主牌
+    private storedLandlordCardSuit: number = -1;  // 地主牌花色（用于检测暗地主出牌）
+    private storedLandlordCardRank: number = -1;  // 地主牌点数
+    private storedHiddenLandlordIds: number[] = [];  // 暗地主ID列表
 
     // 存储绑定函数
     private boundOnGameStarted: () => void = null!;
@@ -104,6 +111,7 @@ export class GameTableCtrl2 extends Component {
     private boundOnPlayRequested: (data: any) => void = null!;
     private boundOnPassRequested: () => void = null!;
     private boundOnSelectLandlordCards: (data: any) => void = null!;
+    private _listenersInitialized: boolean = false;
 
     // WebSocket 消息处理函数
     private boundWsTurnChanged: (data: any) => void = null!;
@@ -115,6 +123,7 @@ export class GameTableCtrl2 extends Component {
     private boundWsPlayerLeave: (data: any) => void = null!;
 
     start() {
+        console.warn(`[GameTableCtrl2] start() called`);
         // 获取房间类型的玩家数量
         this.playerCount = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 6;
 
@@ -160,9 +169,7 @@ export class GameTableCtrl2 extends Component {
             this.onGameDealt(gameDealtData);
         } else {
             clearQuickMatchDealt();
-            setTimeout(() => {
-                this.startGame();
-            }, 500);
+            this.startGame();
         }
     }
 
@@ -195,6 +202,9 @@ export class GameTableCtrl2 extends Component {
         // 初始化所有Label为空文本
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '';
+        }
+        if (this.PlayerStatusLabel) {
+            this.PlayerStatusLabel.string = '';
         }
 
         if (this.gameOverNode) {
@@ -318,6 +328,11 @@ export class GameTableCtrl2 extends Component {
     }
 
     private setupEventListeners(): void {
+        if (this._listenersInitialized) {
+            console.warn(`[GameTableCtrl2] setupEventListeners called again!`);
+            return;
+        }
+        this._listenersInitialized = true;
         EventBus.on(GameEvents.GAME_STARTED, this.boundOnGameStarted);
         EventBus.on(GameEvents.GAME_DEALT, this.boundOnGameDealt);
         EventBus.on(GameEvents.LANDLORD_SELECTED, this.boundOnLandlordSelected);
@@ -361,24 +376,37 @@ export class GameTableCtrl2 extends Component {
     private async onWsCardsPlayed(data: { playerId: number; cards: Card[]; actionType: string }): Promise<void> {
         if (data.actionType === 'pass') {
             console.log(`[出牌] ${this.getPlayerName(data.playerId)}不出`);
-            EventBus.emit(GameEvents.PLAYER_PASSED, { playerId: data.playerId });
             this.actionButtons?.updateButtonState();
         } else {
             const playerData = CURRENT_ROOM_PLAYERS[data.playerId];
             const playerName = playerData?.nickname || playerData?.name || `玩家${data.playerId}`;
-            console.log(`[出牌] ${playerName}出牌: ${(data.cards || []).map((c: any) => typeof c === 'number' ? c : c.id).join(',')} (${(data.cards || []).length}张)`);
+            // 确保 cards 是完整的卡牌对象（而非纯ID），供 PlayerInfoView 的 checkRevealHiddenLandlord 使用
+            const resolvedCards: Card[] = (data.cards || []).map((c: any) => {
+                if (typeof c === 'number') {
+                    return decodeCardId(c);
+                }
+                return c as Card;
+            });
+            console.log(`[出牌] ${playerName}出牌: ${(resolvedCards).map(c => c.id).join(',')} (${resolvedCards.length}张)`);
             this.unscheduleAllCallbacks();
             this.playedCardsView?.clearAllAreas();
+
+            // 更新其他玩家手牌数
+            if (this.playerCardCounts.length > 0) {
+                this.playerCardCounts[data.playerId] = Math.max(0, (this.playerCardCounts[data.playerId] || 0) - resolvedCards.length);
+                EventBus.emit(GameEvents.CARD_DEALT, { playerId: data.playerId, count: this.playerCardCounts[data.playerId] });
+            }
+
             EventBus.emit(GameEvents.CARDS_PLAYED, {
                 playerId: data.playerId,
-                cards: data.cards || [],
+                cards: resolvedCards,
                 pattern: (data as any).pattern,
                 remainingCounts: (data as any).remainingCounts
             });
 
             // 检测炸弹
-            console.log(`[炸弹检测] cards: ${JSON.stringify(data.cards?.slice(0,3))}, pattern: ${(data as any).pattern}`);
-            if (this.isBomb(data.cards)) {
+            console.log(`[炸弹检测] cards: ${JSON.stringify(resolvedCards?.slice(0, 3))}, pattern: ${(data as any).pattern}`);
+            if (this.isBomb(resolvedCards)) {
                 this.bombCount++;
                 if (this.bombCountLabel) {
                     this.bombCountLabel.string = `炸弹数量：${this.bombCount}`;
@@ -386,8 +414,32 @@ export class GameTableCtrl2 extends Component {
                 console.log(`[炸弹] 本局炸弹数量: ${this.bombCount}, 牌型: ${(data as any).pattern}`);
             }
 
+            // 检测农民出完牌，揭示农民身份
+            const remainingCounts = (data as any).remainingCounts;
+            if (remainingCounts) {
+                for (const [pid, count] of Object.entries(remainingCounts)) {
+                    if (count === 0) {
+                        EventBus.emit(GameEvents.FARMER_REVEAL, { playerId: parseInt(pid as string) });
+                    }
+                }
+            }
+
+            // 检测暗地主出牌，揭示暗地主身份
+            if (this.storedHiddenLandlordIds.length > 0 && this.storedLandlordCardSuit >= 0) {
+                const playerId = data.playerId;
+                if (this.storedHiddenLandlordIds.includes(playerId)) {
+                    for (const card of resolvedCards) {
+                        if (card.suit === this.storedLandlordCardSuit && card.rank === this.storedLandlordCardRank) {
+                            EventBus.emit(GameEvents.HIDDEN_LANDLORD_REVEALED, { playerId });
+                            console.log(`[暗地主揭示] 玩家${playerId}打出了地主牌`);
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (data.playerId === CURRENT_PLAYER_INDEX) {
-                await this.onCardsPlayed({ playerId: data.playerId, cards: data.cards || [] });
+                await this.onCardsPlayed({ playerId: data.playerId, cards: resolvedCards, pattern: (data as any).pattern, skipSFX: true });
                 if (this.handView && this.actionButtons) {
                     this.actionButtons.setHand(this.handView.hand);
                 }
@@ -457,6 +509,8 @@ export class GameTableCtrl2 extends Component {
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '发牌中...';
         }
+        // 发牌开始前就显示地主牌背面
+        this.showLandlordCardBack();
     }
 
     private onGameStarted(): void {
@@ -464,10 +518,24 @@ export class GameTableCtrl2 extends Component {
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '发牌中...';
         }
+        // 发牌开始前就显示地主牌背面
+        this.showLandlordCardBack();
     }
 
     private onGameDealt(data: { hands: Card[][]; landlordCards: Card[]; landlordId: number; hiddenLandlordIds?: number[] }): void {
         console.log('[onGameDealt6] called, handView:', !!this.handView, 'hands[0]:', data.hands[0]?.length);
+
+        // 如果还没有选完地主牌（hiddenIds为空），显示"发牌中..."
+        const hiddenIds = data.hiddenLandlordIds || [];
+        if (hiddenIds.length === 0 && this.gameStatusLabel) {
+            this.gameStatusLabel.string = '发牌中...';
+        }
+
+        // 如果还没有显示过地主牌背面，先显示（发牌前就要显示）
+        if (!this.landlordCardNode) {
+            this.showLandlordCardBack();
+        }
+
         if (!this.handView) {
             console.log('[onGameDealt6] early return: handView is null');
             return;
@@ -499,6 +567,19 @@ export class GameTableCtrl2 extends Component {
 
                 this.onLandlordSelected({ playerId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds || [] });
 
+                // 初始化所有玩家手牌数
+                const myHandCount = data.hands[0]?.length || 0;
+                const defaultCount = ROOM_CARDS_PER_PLAYER[CURRENT_ROOM_TYPE] || 27;
+                this.playerCardCounts = [];
+                for (let i = 0; i < this.playerCount; i++) {
+                    const count = i === 0 ? myHandCount : defaultCount;
+                    this.playerCardCounts.push(count);
+                    EventBus.emit(GameEvents.CARD_DEALT, { playerId: i, count });
+                }
+
+                // 发牌动画全部完成，允许显示操作按钮（必须在发送game/ready之前）
+                this.actionButtons?.onDealingAnimationEnd();
+
                 const wsManager = WebSocketManager.getInstance();
                 wsManager.send(WsMessageType.GAME_READY);
             }, this.playerCount);
@@ -508,13 +589,27 @@ export class GameTableCtrl2 extends Component {
                 this.handView.setHand(new Hand(sortedCards));
                 this.initPlayerInfo(data.landlordId);
                 this.onLandlordSelected({ playerId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds || [] });
+
+                // 初始化所有玩家手牌数
+                const myHandCount2 = data.hands[0]?.length || 0;
+                const defaultCount2 = ROOM_CARDS_PER_PLAYER[CURRENT_ROOM_TYPE] || 27;
+                this.playerCardCounts = [];
+                for (let i = 0; i < this.playerCount; i++) {
+                    const count = i === 0 ? myHandCount2 : defaultCount2;
+                    this.playerCardCounts.push(count);
+                    EventBus.emit(GameEvents.CARD_DEALT, { playerId: i, count });
+                }
+
+                // 发牌动画全部完成，允许显示操作按钮（必须在发送game/ready之前）
+                this.actionButtons?.onDealingAnimationEnd();
+
                 const wsManager = WebSocketManager.getInstance();
                 wsManager.send(WsMessageType.GAME_READY);
             })();
         }
     }
 
-    private async onLandlordSelected(data: { playerId: number; hiddenLandlordIds?: number[]; landlordCardId?: number }): Promise<void> {
+    private async onLandlordSelected(data: { playerId: number; hiddenLandlordIds?: number[]; landlordCardId?: number; landlordCardSuit?: number; landlordCardRank?: number }): Promise<void> {
         console.log(`[地主] ${this.getPlayerName(data.playerId)}, 暗地主: ${JSON.stringify(data.hiddenLandlordIds)}, landlordCardId: ${data.landlordCardId}`);
         const playerNames = this.getPlayerNames();
         const hiddenIds = data.hiddenLandlordIds || [];
@@ -550,25 +645,31 @@ export class GameTableCtrl2 extends Component {
 
         // 暗地主已确定
         this.landlordSelectionDone = true;
-        this._pendingLandlordCardId = data.landlordCardId ?? -1;
+        // 存储地主牌信息（供 onWsCardsPlayed 检测暗地主出牌时使用）
+        this.storedHiddenLandlordIds = hiddenIds.map(id => Number(id));
+        if (data.landlordCardSuit !== undefined && data.landlordCardRank !== undefined) {
+            this.storedLandlordCardSuit = data.landlordCardSuit;
+            this.storedLandlordCardRank = data.landlordCardRank;
+        } else if (data.landlordCardId > 0) {
+            const idx = data.landlordCardId % 1000;
+            if (idx >= 52) {
+                this.storedLandlordCardSuit = 4;
+                this.storedLandlordCardRank = idx === 52 ? 16 : 17;
+            } else {
+                this.storedLandlordCardSuit = Math.floor(idx / 13) % 4;
+                this.storedLandlordCardRank = (idx % 13) + 3;
+            }
+        }
+
+        // 更新状态文本（AI已选完地主牌时，gameStatusLabel可能还是"发牌中..."）
+        if (this.gameStatusLabel) {
+            let statusText = `${this.getPlayerName(data.playerId)}是地主！`;
+            this.gameStatusLabel.string = statusText;
+        }
 
         // 翻转地主牌显示正面（仅当地主牌ID有效时）
         if (data.landlordCardId !== undefined && data.landlordCardId > 0) {
             await this.flipLandlordCardToFront(data.landlordCardId);
-        } else {
-            // 如果没有有效的地主牌ID，直接隐藏选择阶段的地主牌区域
-            console.log(`[地主] 暗地主已确定（无有效地主牌ID: ${data.landlordCardId}），跳过翻转动画`);
-            this.hideLandlordCard();
-        }
-
-        // 翻转完成后更新显示
-        let statusText = `${playerNames[data.playerId]}是明地主！`;
-        if (hiddenIds.length > 0) {
-            const hiddenNames = hiddenIds.map(id => playerNames[id]).join('、');
-            statusText += ` ${hiddenNames}是暗地主！`;
-        }
-        if (this.gameStatusLabel) {
-            this.gameStatusLabel.string = statusText;
         }
 
         // 暗地主确定后，重置选择地主牌状态，切换到正常出牌模式
@@ -656,12 +757,6 @@ export class GameTableCtrl2 extends Component {
         this.isFlippingLandlordCard = false;
         console.log(`[翻转地主牌] cardId=${cardId}, suit=${suit}, rank=${rank}`);
 
-        // 翻转完成后等待3秒再隐藏地主牌
-        setTimeout(() => {
-            console.log(`[隐藏地主牌] 翻转完成3秒后隐藏`);
-            this.hideLandlordCard();
-        }, 3000);
-
         // 翻转完成后，处理暂存的回合变化
         if (this._pendingTurnData) {
             console.log(`[翻转完成] 处理暂存的回合变化: ${this.getPlayerName(this._pendingTurnData.playerId)}`);
@@ -669,14 +764,6 @@ export class GameTableCtrl2 extends Component {
             this._pendingTurnData = null;
             this.onTurnChanged(pendingData);
         }
-    }
-
-    /** 隐藏地主牌 */
-    private hideLandlordCard(): void {
-        if (this.landlordCardArea) {
-            this.landlordCardArea.active = false;
-        }
-        this.landlordCardNode = null;
     }
 
     private _pendingTurnData: { playerId: number } | null = null;  // 存储待处理的回合变化
@@ -726,11 +813,11 @@ export class GameTableCtrl2 extends Component {
             this.isSelectingLandlordCards = false;
         }
 
-        if (this.gameStatusLabel) {
+        if (this.PlayerStatusLabel) {
             if (data.playerId === CURRENT_PLAYER_INDEX) {
-                this.gameStatusLabel.string = '请出牌';
+                this.PlayerStatusLabel.string = '请出牌';
             } else {
-                this.gameStatusLabel.string = `${playerNames[data.playerId]}出牌`;
+                this.PlayerStatusLabel.string = `${playerNames[data.playerId]}出牌`;
             }
         }
 
@@ -745,7 +832,23 @@ export class GameTableCtrl2 extends Component {
         }
     }
 
-    private async onCardsPlayed(data: { playerId: number; cards: Card[] }): Promise<void> {
+    private async onCardsPlayed(data: { playerId: number; cards: Card[]; pattern?: PatternResult; skipSFX?: boolean }): Promise<void> {
+        // 清空游戏状态标签
+        if (this.gameStatusLabel) {
+            this.gameStatusLabel.string = '';
+        }
+
+        // 更新自己手牌数
+        if (data.playerId === CURRENT_PLAYER_INDEX && this.playerCardCounts.length > 0) {
+            this.playerCardCounts[0] = Math.max(0, (this.playerCardCounts[0] || 0) - data.cards.length);
+            EventBus.emit(GameEvents.CARD_DEALT, { playerId: 0, count: this.playerCardCounts[0] });
+        }
+
+        // 播放出牌音效
+        if (!data.skipSFX) {
+            AudioManager.getInstance().playCardSFX(data.pattern?.type, data.cards);
+        }
+
         console.log(`[出牌动画] ${this.getPlayerName(data.playerId)}出牌动画`);
         if (data.playerId === CURRENT_PLAYER_INDEX && this.handView) {
             const targetPos = this.playedCardsView?.node.position.clone() || new Vec3(0, 0, 0);
@@ -758,12 +861,21 @@ export class GameTableCtrl2 extends Component {
         }
     }
 
+    private _lastPassSFXTime: number = 0;
+
     private onPlayerPassed(data: { playerId: number }): void {
         console.log(`[跳过] 本地处理: ${this.getPlayerName(data.playerId)}`);
         const playerNames = this.getPlayerNames();
-        if (this.gameStatusLabel) {
-            this.gameStatusLabel.string = `${playerNames[data.playerId]}不出`;
+        if (this.PlayerStatusLabel) {
+            this.PlayerStatusLabel.string = `${playerNames[data.playerId]}不出`;
         }
+        // 防重：500ms内的重复调用忽略（应对多实例同时触发）
+        const now = Date.now();
+        if (now - this._lastPassSFXTime < 500) return;
+        this._lastPassSFXTime = now;
+        const guoSounds = ['Woman_buyao1', 'Woman_buyao2', 'Woman_buyao3', 'Woman_buyao4'];
+        const randomGuo = guoSounds[Math.floor(Math.random() * guoSounds.length)];
+        AudioManager.getInstance().playSFX(`audio/Fight/${randomGuo}`);
     }
 
     private onRoundCleared(): void {
@@ -846,9 +958,12 @@ export class GameTableCtrl2 extends Component {
         if (this.actionButtons) this.actionButtons.reset();
         this.playerHand = [];
         this.bombCount = 0;
+        this.playerCardCounts = [];
         if (this.bombCountLabel) this.bombCountLabel.string = '炸弹数量：0';
         const wsManager = WebSocketManager.getInstance();
-        wsManager.send(WsMessageType.ROOM_QUICK_MATCH);
+        wsManager.send(WsMessageType.ROOM_QUICK_MATCH, {
+            roomType: CURRENT_ROOM_TYPE,
+        });
     }
 
     private onExitClicked(): void {

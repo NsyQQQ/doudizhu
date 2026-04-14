@@ -414,7 +414,9 @@ class GameRoom extends events_1.EventEmitter {
         this.emit('landlord_selected', {
             landlordId: this.landlordId,
             hiddenLandlordIds: this.hiddenLandlordIds,
-            landlordCardId: this.landlordCardId
+            landlordCardId: this.landlordCardId,
+            landlordCardSuit: selectedCard.suit,
+            landlordCardRank: selectedCard.rank
         });
         // 进入出牌阶段
         this.status = 'playing';
@@ -554,12 +556,14 @@ class GameRoom extends events_1.EventEmitter {
             this.passedPlayers.clear(); // 重置跳过记录
             this.emit('round_cleared');
             // 一轮结束后，由最后出牌者继续出牌
+            this.turnNotified = false; // 重置通知标志
             console.log(`[TURN] Player${this.roundStartPlayerId}'s turn (last played)`);
             this.emit('turn_changed', this.roundStartPlayerId);
         }
         else {
             // 下一回合，跳过没有手牌的玩家
             this.currentPlayerId = this.getNextPlayerWithCards(this.currentPlayerId);
+            this.turnNotified = false; // 重置通知标志
             console.log(`[TURN] Player${this.currentPlayerId}'s turn (next)`);
             this.emit('turn_changed', this.currentPlayerId);
         }
@@ -614,12 +618,14 @@ class GameRoom extends events_1.EventEmitter {
             this.passedPlayers.clear(); // 重置跳过记录
             this.emit('round_cleared');
             // 一轮结束后，由最后出牌者继续出牌
+            this.turnNotified = false; // 重置通知标志
             console.log(`[TURN] Player${this.roundStartPlayerId}'s turn (pass last played)`);
             this.emit('turn_changed', this.roundStartPlayerId);
         }
         else {
             // 下一回合，跳过没有手牌的玩家
             this.currentPlayerId = this.getNextPlayerWithCards(this.currentPlayerId);
+            this.turnNotified = false; // 重置通知标志
             console.log(`[TURN] Player${this.currentPlayerId}'s turn (pass next)`);
             this.emit('turn_changed', this.currentPlayerId);
         }

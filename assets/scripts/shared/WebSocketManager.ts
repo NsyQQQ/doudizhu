@@ -180,7 +180,6 @@ export class WebSocketManager extends EventEmitter {
         };
 
         try {
-            console.log(`[发送客户端消息]:[类型]${message.type},[数据]`,message.data);
             this.ws.send(JSON.stringify(message));
         } catch (error) {
         }

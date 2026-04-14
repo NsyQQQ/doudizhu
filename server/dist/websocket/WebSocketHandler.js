@@ -811,7 +811,7 @@ class WebSocketHandler {
         room.on('landlord_selected', (data) => {
             this.broadcastToRoom(room.roomCode, {
                 type: 'game/landlord_selected',
-                data: { landlordId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds, landlordCardId: data.landlordCardId }
+                data: { landlordId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds, landlordCardId: data.landlordCardId, landlordCardSuit: data.landlordCardSuit, landlordCardRank: data.landlordCardRank }
             });
         });
         room.on('turn_changed', (playerId) => {

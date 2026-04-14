@@ -14,10 +14,11 @@ import { CardFlipAnimator } from '../ui/animations/CardFlipAnimator';
 import { DealCardsAnimator } from '../ui/animations/DealCardsAnimator';
 import { EventBus, GameEvents } from '../shared/EventBus';
 import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
-import { CURRENT_ROOM_ID, QUICK_MATCH_DEALT, clearQuickMatchDealt, CURRENT_ROOM_PLAYERS, CURRENT_PLAYER_INDEX, CURRENT_USER_NAME, CURRENT_USER_AVATAR, setCurrentRoomPlayers } from '../shared/Constants';
+import { CURRENT_ROOM_ID, QUICK_MATCH_DEALT, clearQuickMatchDealt, CURRENT_ROOM_PLAYERS, CURRENT_PLAYER_INDEX, CURRENT_USER_NAME, CURRENT_USER_AVATAR, setCurrentRoomPlayers, CURRENT_ROOM_TYPE } from '../shared/Constants';
 import { RoomManager } from '../shared/RoomManager';
 import { Card } from '../core/Card';
 import { Hand } from '../core/Hand';
+import { AudioManager } from '../shared/AudioManager';
 
 const { ccclass, property } = _decorator;
 
@@ -71,6 +72,7 @@ export class GameTableCtrl extends Component {
     private gameController: GameController = null!;
     private landlordCards: Card[] = [];  // 保存地主牌
     private playerHand: Card[] = [];  // 保存玩家手牌
+    private playerCardCounts: number[] = [];  // 所有玩家手牌数
 
     // 存储绑定函数
     private boundOnGameStarted: () => void = null!;
@@ -350,9 +352,16 @@ export class GameTableCtrl extends Component {
             this.playedCardsView?.clearAllAreas();
             // 出牌时通过EventBus通知所有监听器（包括PlayerInfoView更新手牌数、PlayedCardsView显示）
             // 包含 remainingCounts 让 PlayerInfoView 直接使用正确数值
+            // 更新其他玩家手牌数
+            if (this.playerCardCounts.length > 0) {
+                this.playerCardCounts[data.playerId] = Math.max(0, (this.playerCardCounts[data.playerId] || 0) - (data.cards?.length || 0));
+                EventBus.emit(GameEvents.CARD_DEALT, { playerId: data.playerId, count: this.playerCardCounts[data.playerId] });
+            }
+
             EventBus.emit(GameEvents.CARDS_PLAYED, {
                 playerId: data.playerId,
                 cards: data.cards || [],
+                pattern: (data as any).pattern,
                 remainingCounts: (data as any).remainingCounts
             });
 
@@ -407,6 +416,7 @@ export class GameTableCtrl extends Component {
             // 重置状态
             this.landlordCards = [];
             this.playerHand = [];
+            this.playerCardCounts = [];
 
             // 更新房间玩家数据
             if (data.room?.players) {
@@ -470,6 +480,7 @@ export class GameTableCtrl extends Component {
             console.log('[onGameDealt] new game detected, resetting state');
             this.landlordCards = [];
             this.playerHand = [];
+            this.playerCardCounts = [];
         }
 
         // 保存地主牌和玩家手牌
@@ -529,7 +540,19 @@ export class GameTableCtrl extends Component {
                 // 8. 翻牌完成后显示"你是地主"
                 this.onLandlordSelected({ playerId: data.landlordId });
 
-                // 9. 发牌动画完成，通知服务器客户端已准备好
+                // 初始化所有玩家手牌数并通知
+                const playerCount = 3;
+                this.playerCardCounts = [];
+                for (let i = 0; i < playerCount; i++) {
+                    const count = i === 0 ? cardsToDeal.length : (i === data.landlordId ? 20 : 17);
+                    this.playerCardCounts.push(count);
+                    EventBus.emit(GameEvents.CARD_DEALT, { playerId: i, count });
+                }
+
+                // 9. 发牌动画全部完成，允许显示操作按钮（必须在发送game/ready之前）
+                this.actionButtons?.onDealingAnimationEnd();
+
+                // 10. 通知服务器客户端已准备好
                 // 服务器收到后会发送 game/turn 开始回合
                 const wsManager = WebSocketManager.getInstance();
                 wsManager.send(WsMessageType.GAME_READY);
@@ -550,6 +573,19 @@ export class GameTableCtrl extends Component {
                     await this.handView.animateCardsByIds(landlordIds, 20);
                 }
                 this.onLandlordSelected({ playerId: data.landlordId });
+
+                // 初始化所有玩家手牌数并通知
+                const playerCount2 = 3;
+                this.playerCardCounts = [];
+                for (let i = 0; i < playerCount2; i++) {
+                    const count = i === 0 ? cardsToDeal.length : (i === data.landlordId ? 20 : 17);
+                    this.playerCardCounts.push(count);
+                    EventBus.emit(GameEvents.CARD_DEALT, { playerId: i, count });
+                }
+
+                // 发牌动画全部完成，允许显示操作按钮（必须在发送game/ready之前）
+                this.actionButtons?.onDealingAnimationEnd();
+
                 // 通知服务器客户端已准备好
                 const wsManager = WebSocketManager.getInstance();
                 wsManager.send(WsMessageType.GAME_READY);
@@ -615,6 +651,20 @@ export class GameTableCtrl extends Component {
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = `${playerNames[data.playerId]}是地主！`;
         }
+        // 直接设置所有玩家的身份标签
+        // 因为 LANDLORD_SELECTED 事件可能在 PlayerInfoView.start() 之前就发出了
+        // BottomPlayerInfo (玩家自己)
+        if (this.BottomPlayerInfo) {
+            this.BottomPlayerInfo.setLandlordIdentity(data.playerId === 0);
+        }
+        // leftPlayerInfo (玩家1)
+        if (this.leftPlayerInfo) {
+            this.leftPlayerInfo.setLandlordIdentity(data.playerId === 1);
+        }
+        // rightPlayerInfo (玩家2)
+        if (this.rightPlayerInfo) {
+            this.rightPlayerInfo.setLandlordIdentity(data.playerId === 2);
+        }
     }
 
     private onTurnChanged(data: { playerId: number }): void {
@@ -639,6 +689,8 @@ export class GameTableCtrl extends Component {
             this.actionButtons.setHand(this.handView.hand);
             // 使用 GameController 的 lastMove
             this.actionButtons.setLastMove(this.gameController?.getLastMove() || null);
+            // 设置是否轮到自己出牌
+            this.actionButtons.setMyTurn(data.playerId === CURRENT_PLAYER_INDEX);
         }
 
         if (this.handView) {
@@ -646,8 +698,16 @@ export class GameTableCtrl extends Component {
         }
     }
 
-    private async onCardsPlayed(data: { playerId: number; cards: Card[] }): Promise<void> {
+    private async onCardsPlayed(data: { playerId: number; cards: Card[]; pattern?: any }): Promise<void> {
         console.log(`[出牌动画] ${this.getPlayerName(data.playerId)}出牌动画`);
+        // 播放出牌音效
+        AudioManager.getInstance().playCardSFX(data.pattern?.type, data.cards);
+
+        // 更新自己手牌数
+        if (data.playerId === CURRENT_PLAYER_INDEX && this.playerCardCounts.length > 0) {
+            this.playerCardCounts[0] = Math.max(0, (this.playerCardCounts[0] || 0) - data.cards.length);
+            EventBus.emit(GameEvents.CARD_DEALT, { playerId: 0, count: this.playerCardCounts[0] });
+        }
         // 自己出牌：从手牌移除并显示到出牌区域
         // 其他玩家出牌由 PlayedCardsView 通过 EventBus 自动处理
         if (data.playerId === CURRENT_PLAYER_INDEX && this.handView) {
@@ -661,12 +721,21 @@ export class GameTableCtrl extends Component {
         }
     }
 
+    private _lastPassSFXTime: number = 0;
+
     private onPlayerPassed(data: { playerId: number }): void {
         console.log(`[跳过] 本地处理: ${this.getPlayerName(data.playerId)}`);
         const playerNames = this.getPlayerNames();
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = `${playerNames[data.playerId]}不出`;
         }
+        // 防重：500ms内的重复调用忽略（应对多实例同时触发）
+        const now = Date.now();
+        if (now - this._lastPassSFXTime < 500) return;
+        this._lastPassSFXTime = now;
+        const guoSounds = ['Woman_buyao1', 'Woman_buyao2', 'Woman_buyao3', 'Woman_buyao4'];
+        const randomGuo = guoSounds[Math.floor(Math.random() * guoSounds.length)];
+        AudioManager.getInstance().playSFX(`audio/Fight/${randomGuo}`);
     }
 
     private onRoundCleared(): void {
@@ -755,9 +824,12 @@ export class GameTableCtrl extends Component {
         // 重置游戏状态
         this.landlordCards = [];
         this.playerHand = [];
+        this.playerCardCounts = [];
         // 发送快速匹配请求开始新游戏
         const wsManager = WebSocketManager.getInstance();
-        wsManager.send(WsMessageType.ROOM_QUICK_MATCH);
+        wsManager.send(WsMessageType.ROOM_QUICK_MATCH, {
+            roomType: CURRENT_ROOM_TYPE,
+        });
     }
 
     /** 退出游戏 */

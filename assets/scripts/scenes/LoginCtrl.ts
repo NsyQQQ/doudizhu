@@ -2,10 +2,13 @@
  * 登录场景控制器
  */
 
+declare const wx: any;
+
 import { _decorator, Component, EditBox, Button, Label } from 'cc';
 import { director } from 'cc';
 import { setCurrentUserId, setCurrentUserName, setCurrentUserAvatar } from '../shared/Constants';
 import { loginByOpenid, checkUserExists } from '../shared/HttpClient';
+import { AudioManager } from '../shared/AudioManager';
 
 const { ccclass, property } = _decorator;
 
@@ -20,15 +23,35 @@ export class LoginCtrl extends Component {
     @property(Label)
     statusLabel: Label = null!;
 
+    @property(Button)
+    clearCacheButton: Button = null!;
+
     private isLoading: boolean = false;
 
     start() {
         this.setupLoginButton();
+        this.setupClearCacheButton();
     }
 
     private setupLoginButton(): void {
         if (this.loginButton) {
             this.loginButton.node.on(Button.EventType.CLICK, this.onLoginClicked, this);
+        }
+    }
+
+    private setupClearCacheButton(): void {
+        if (this.clearCacheButton) {
+            this.clearCacheButton.node.on(Button.EventType.CLICK, this.onClearCacheClicked, this);
+        }
+    }
+
+    private onClearCacheClicked(): void {
+        // 清除微信 storage
+        try {
+            (wx as any).clearStorageSync();
+            this.showStatus('缓存已清除');
+        } catch (e) {
+            this.showStatus('清除失败');
         }
     }
 
@@ -100,6 +123,9 @@ export class LoginCtrl extends Component {
     onDestroy(): void {
         if (this.loginButton?.node) {
             this.loginButton.node.off(Button.EventType.CLICK, this.onLoginClicked, this);
+        }
+        if (this.clearCacheButton?.node) {
+            this.clearCacheButton.node.off(Button.EventType.CLICK, this.onClearCacheClicked, this);
         }
     }
 }

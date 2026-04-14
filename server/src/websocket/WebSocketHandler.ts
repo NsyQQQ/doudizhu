@@ -921,10 +921,10 @@ export class WebSocketHandler {
       }
     });
 
-    room.on('landlord_selected', (data: { landlordId: number, hiddenLandlordIds: number[], landlordCardId: number }) => {
+    room.on('landlord_selected', (data: { landlordId: number, hiddenLandlordIds: number[], landlordCardId: number, landlordCardSuit?: number, landlordCardRank?: number }) => {
       this.broadcastToRoom(room.roomCode, {
         type: 'game/landlord_selected',
-        data: { landlordId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds, landlordCardId: data.landlordCardId }
+        data: { landlordId: data.landlordId, hiddenLandlordIds: data.hiddenLandlordIds, landlordCardId: data.landlordCardId, landlordCardSuit: data.landlordCardSuit, landlordCardRank: data.landlordCardRank }
       });
     });
 

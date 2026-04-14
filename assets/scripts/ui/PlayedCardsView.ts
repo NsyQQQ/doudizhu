@@ -6,7 +6,7 @@ import { _decorator, Component, Node, Prefab, instantiate, Label } from 'cc';
 import { Card, CardPatternType } from '../core/Card';
 import { CardView } from './CardView';
 import { CardPatternRecognizer } from '../core/CardPattern';
-import { CardPatternType2 } from '../core/CardPattern2';
+import { CardPatternRecognizer2, CardPatternType2 } from '../core/CardPattern2';
 import { EventBus, GameEvents } from '../shared/EventBus';
 import { CURRENT_PLAYER_INDEX, CURRENT_ROOM_TYPE, ROOM_PLAYER_COUNTS } from '../shared/Constants';
 
@@ -121,64 +121,7 @@ export class PlayedCardsView extends Component {
 
         this.areaNodes.set(playerId, cardNodes);
 
-        // 识别牌型并显示（优先使用服务端传来的pattern）
-        const recognizedPattern = pattern || CardPatternRecognizer.recognize(cards);
-        const patternName = this.getPatternName(recognizedPattern);
-        this.updateLabel(playerId, patternName);
-    }
-
-    /** 获取牌型名称 */
-    private getPatternName(pattern: { type: number; primaryValue?: number; secondaryValue?: number } | null): string {
-        if (!pattern) return '';
-
-        const type = pattern.type as number;
-
-        // 6人场牌型
-        if (CURRENT_ROOM_TYPE === 5) {
-            switch (type) {
-                case CardPatternType2.BOMB_SMALL:
-                case CardPatternType2.BOMB_MEDIUM_SMALL:
-                case CardPatternType2.BOMB_MEDIUM:
-                case CardPatternType2.BOMB_MEDIUM_LARGE:
-                case CardPatternType2.BOMB_LARGE:
-                    return '炸弹';
-                case CardPatternType2.ROCKET_SMALL:
-                case CardPatternType2.ROCKET_MEDIUM_SMALL:
-                case CardPatternType2.ROCKET_MEDIUM:
-                case CardPatternType2.ROCKET_MEDIUM_LARGE:
-                case CardPatternType2.ROCKET_LARGE:
-                    return '火箭';
-                case CardPatternType2.STRAIGHT_TRIPLES:
-                case CardPatternType2.STRAIGHT_TRIPLES_WITH_WINGS_SINGLE:
-                case CardPatternType2.STRAIGHT_TRIPLES_WITH_WINGS_PAIR:
-                    return '飞机';
-            }
-        }
-
-        // 3人场牌型
-        switch (type) {
-            case CardPatternType.SINGLE: return '单张';
-            case CardPatternType.PAIR: return '对子';
-            case CardPatternType.TRIPLE: return '三张';
-            case CardPatternType.TRIPLE_SINGLE: return '三带一';
-            case CardPatternType.TRIPLE_PAIR: return '三带二';
-            case CardPatternType.STRAIGHT: return '顺子';
-            case CardPatternType.STRAIGHT_PAIRS: return '连对';
-
-            case CardPatternType.STRAIGHT_TRIPLES:
-            case CardPatternType.STRAIGHT_TRIPLES_WITH_WINGS_SINGLE:
-            case CardPatternType.STRAIGHT_TRIPLES_WITH_WINGS_PAIR:
-                return '飞机';
-
-            case CardPatternType.BOMB: return '炸弹';
-            case CardPatternType.ROCKET: return '王炸';
-
-            case CardPatternType.QUADRUPLE_SINGLE:
-            case CardPatternType.QUADRUPLE_PAIR:
-                return '四带二';
-                
-            default: return '';
-        }
+        this.updateLabel(playerId, '');
     }
 
     private showPass(playerId: number): void {

@@ -6,6 +6,7 @@ import { _decorator, Component, Button, Label, Color, Sprite, SpriteFrame, game 
 import { director, resources } from 'cc';
 import { setCurrentRoomType, setCurrentUserId, setCurrentUserName, CURRENT_USER_ID, CURRENT_USER_NAME, CURRENT_USER_AVATAR } from '../shared/Constants';
 import { WebSocketManager } from '../shared/WebSocketManager';
+import { AudioManager } from '../shared/AudioManager';
 
 const { ccclass, property } = _decorator;
 

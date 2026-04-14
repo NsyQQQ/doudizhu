@@ -82,7 +82,7 @@ export class GameController2 extends Component {
 
         // 地主确定
         this.onLandlordSelectedHandler = (data: any) => {
-            console.log(`[GameController2 onLandlordSelectedHandler] landlordId=${data.landlordId}, hiddenIds=${JSON.stringify(data.hiddenLandlordIds)}, landlordCardId=${data.landlordCardId}`);
+            console.log(`[GameController2 onLandlordSelectedHandler] landlordId=${data.landlordId}, hiddenIds=${JSON.stringify(data.hiddenLandlordIds)}, landlordCardId=${data.landlordCardId}, landlordCardSuit=${data.landlordCardSuit}, landlordCardRank=${data.landlordCardRank}`);
             this.landlordId = data.landlordId;
             this.hiddenLandlordIds = data.hiddenLandlordIds || [];
             this.landlordCardId = data.landlordCardId !== undefined ? data.landlordCardId : -1;
@@ -97,7 +97,7 @@ export class GameController2 extends Component {
                     this.players[hid].isHiddenLandlord = true;
                 }
             }
-            EventBus.emit(GameEvents.LANDLORD_SELECTED, { playerId: data.landlordId, hiddenLandlordIds: this.hiddenLandlordIds, landlordCardId: this.landlordCardId });
+            EventBus.emit(GameEvents.LANDLORD_SELECTED, { playerId: data.landlordId, hiddenLandlordIds: this.hiddenLandlordIds, landlordCardId: this.landlordCardId, landlordCardSuit: data.landlordCardSuit, landlordCardRank: data.landlordCardRank });
             console.log(`[GameController2] emit LANDLORD_SELECTED: landlordId=${data.landlordId}, hiddenIds=${JSON.stringify(this.hiddenLandlordIds)}`);
         };
 
@@ -182,13 +182,6 @@ export class GameController2 extends Component {
         this.state = GameState.LANDLORD_REVEAL;
     }
 
-    /** UI 动画完成后调用 */
-    public startPlaying(): void {
-        if (this.state === GameState.LANDLORD_REVEAL) {
-            this.state = GameState.PLAYING;
-        }
-    }
-
     private handleRemoteAction(data: any): void {
         const { playerId, cards, actionType, pattern } = data;
 
@@ -248,7 +241,7 @@ export class GameController2 extends Component {
             const cardIds = selectedCards.map(c => c.id);
             this.ws.send(WsMessageType.GAME_ACTION, { cards: cardIds });
 
-            EventBus.emit(GameEvents.CARDS_PLAYED, { playerId: humanPlayerId, cards: selectedCards });
+            EventBus.emit(GameEvents.CARDS_PLAYED, { playerId: humanPlayerId, cards: selectedCards, pattern: matchedMove.pattern });
         }
     }
 
@@ -260,43 +253,14 @@ export class GameController2 extends Component {
         }
 
         this.ws.send(WsMessageType.GAME_ACTION, { actionType: 'pass' });
-        EventBus.emit(GameEvents.PLAYER_PASSED, { playerId: 0 });
     }
 
     getCurrentPlayerId(): number {
         return this.currentPlayerId;
     }
 
-    getLandlordId(): number {
-        return this.landlordId;
-    }
-
-    getLandlordCards(): Card[] {
-        return this.landlordCards;
-    }
-
-    getPlayerHand(playerId: number): Hand {
-        return this.players[playerId]?.hand || new Hand([]);
-    }
-
     getLastMove(): Move | null {
         return this.lastMove;
-    }
-
-    getIsMyTurn(): boolean {
-        return this.isMyTurn;
-    }
-
-    isPlayerTurn(playerId: number): boolean {
-        return playerId === this.currentPlayerId;
-    }
-
-    isPlayerLandlord(playerId: number): boolean {
-        return this.players[playerId]?.isLandlord || false;
-    }
-
-    getPlayerCount(): number {
-        return this.playerCount;
     }
 
     onDestroy(): void {

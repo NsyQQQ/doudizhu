@@ -21,98 +21,169 @@ export enum CardPatternType2 {
     STRAIGHT_TRIPLES_WITH_WINGS_SINGLE = 9,  // 飞机带单翅膀
     STRAIGHT_TRIPLES_WITH_WINGS_PAIR = 10,   // 飞机带对翅膀
 
-    // ---- 炸弹牌型（按点数比较）----
-    // 小炸弹: 4张同点数
-    BOMB_SMALL = 20,
-    // 中小炸弹: 5-6张同点数
-    BOMB_MEDIUM_SMALL = 21,
-    // 中炸弹: 7-8张同点数
-    BOMB_MEDIUM = 22,
-    // 中大炸弹: 9-10张同点数
-    BOMB_MEDIUM_LARGE = 23,
-    // 大炸弹: 11-12张同点数
-    BOMB_LARGE = 24,
+    // ---- 炸弹牌型（同类型按点数比较）----
+    // 4炸：4张同点数
+    BOMB_four = 20,
+    // 小王炸: 2个小王
+    ROCKET_two_SMALL = 21,
+    // 大小王炸: 1个大王+1个小王
+    ROCKET_two_MEDIUM = 22,
+    // 大大王炸: 2个大王
+    ROCKET_two_LARGE = 23,
 
-    // ---- 王炸牌型（按数量比较，不区分大小王）----
-    // 小火箭: 2个王
-    ROCKET_SMALL = 30,
-    // 中小火箭: 3个王
-    ROCKET_MEDIUM_SMALL = 31,
-    // 中火箭: 4个王
-    ROCKET_MEDIUM = 32,
-    // 中大火箭: 5个王
-    ROCKET_MEDIUM_LARGE = 33,
-    // 大火箭: 6个王
-    ROCKET_LARGE = 34,
+    // 5炸: 5张同点数
+    BOMB_five = 30,
+    // 6炸: 6张同点数
+    BOMB_six = 31,
+    // 大大大王炸: 3个小王
+    ROCKET_three_SMALL = 32,
+    // 大小小王炸: 1个大王+2个小王
+    ROCKET_three_MEDIUM1 = 33,
+    // 大大小王炸: 2个大王+1个小王
+    ROCKET_three_MEDIUM2 = 34,
+    // 大大大王炸: 3个大王
+    ROCKET_three_LARGE = 35,
+
+    // 7炸: 7张同点数
+    BOMB_seven = 40,
+    // 8炸: 8张同点数
+    BOMB_eight = 41,
+    // 4王炸: 4个王
+    ROCKET_four = 42,
+
+    // 9炸弹: 9张同点数
+    BOMB_nine = 50,
+    // 10炸: 10张同点数
+    BOMB_ten = 51,
+    // 5王炸: 5个王
+    ROCKET_five = 52,
+
+    // 11炸: 11张同点数
+    BOMB_eleven = 60,
+    // 12炸: 12张同点数
+    BOMB_twelve = 61,
+    // 6王炸: 6个王
+    ROCKET_six = 62,
+}
+
+/** 六人场牌型识别结果 */
+export interface PatternResult2 {
+    type: CardPatternType2;
+    primaryValue: number;
+    secondaryValue?: number;
 }
 
 /** 六人场炸弹牌型大小排序（从大到小） */
 const BOMB_PRIORITY: CardPatternType2[] = [
-    CardPatternType2.ROCKET_LARGE,        // 大火箭
-    CardPatternType2.BOMB_LARGE,           // 大炸弹
-    CardPatternType2.ROCKET_MEDIUM_LARGE,  // 中大火箭
-    CardPatternType2.BOMB_MEDIUM_LARGE,    // 中大炸弹
-    CardPatternType2.ROCKET_MEDIUM,        // 中火箭
-    CardPatternType2.BOMB_MEDIUM,          // 中炸弹
-    CardPatternType2.ROCKET_MEDIUM_SMALL,  // 中小火箭
-    CardPatternType2.BOMB_MEDIUM_SMALL,   // 中小炸弹
-    CardPatternType2.ROCKET_SMALL,         // 小火箭
-    CardPatternType2.BOMB_SMALL,            // 小炸弹
+    CardPatternType2.ROCKET_six,
+    CardPatternType2.BOMB_twelve,
+    CardPatternType2.BOMB_eleven,
+
+    CardPatternType2.ROCKET_five,
+    CardPatternType2.BOMB_ten,
+    CardPatternType2.BOMB_nine,
+
+    CardPatternType2.ROCKET_four,
+    CardPatternType2.BOMB_eight,
+    CardPatternType2.BOMB_seven,
+
+    CardPatternType2.ROCKET_three_LARGE,
+    CardPatternType2.ROCKET_three_MEDIUM2,
+    CardPatternType2.ROCKET_three_MEDIUM1,
+    CardPatternType2.ROCKET_three_SMALL,
+    CardPatternType2.BOMB_six,
+    CardPatternType2.BOMB_five,
+    
+    CardPatternType2.ROCKET_two_LARGE,
+    CardPatternType2.ROCKET_two_MEDIUM,
+    CardPatternType2.ROCKET_two_SMALL,
+    CardPatternType2.BOMB_four,
 ];
 
-/** 获取牌型是否为王炸 */
-function isRocket(type: CardPatternType2): boolean {
-    return type >= CardPatternType2.ROCKET_SMALL && type <= CardPatternType2.ROCKET_LARGE;
+/** 获取牌型是否为王炸（支持CardPatternType和CardPatternType2） */
+export function isRocket(type: CardPatternType2 | CardPatternType): boolean {
+    if (type === CardPatternType.ROCKET) return true;
+    return type === CardPatternType2.ROCKET_two_SMALL ||
+           type === CardPatternType2.ROCKET_two_MEDIUM ||
+           type === CardPatternType2.ROCKET_two_LARGE ||
+           type === CardPatternType2.ROCKET_three_SMALL ||
+           type === CardPatternType2.ROCKET_three_MEDIUM1 ||
+           type === CardPatternType2.ROCKET_three_MEDIUM2 ||
+           type === CardPatternType2.ROCKET_three_LARGE ||
+           type === CardPatternType2.ROCKET_four ||
+           type === CardPatternType2.ROCKET_five ||
+           type === CardPatternType2.ROCKET_six;
 }
 
-/** 获取炸弹/火箭的等级（1-5），用于同级比较 */
+/** 获取牌型是否为炸弹（支持CardPatternType和CardPatternType2） */
+export function isBomb(type: CardPatternType2 | CardPatternType): boolean {
+    if (type === CardPatternType.BOMB) return true;
+    return type === CardPatternType2.BOMB_four ||
+           type === CardPatternType2.BOMB_five ||
+           type === CardPatternType2.BOMB_six ||
+           type === CardPatternType2.BOMB_seven ||
+           type === CardPatternType2.BOMB_eight ||
+           type === CardPatternType2.BOMB_nine ||
+           type === CardPatternType2.BOMB_ten ||
+           type === CardPatternType2.BOMB_eleven ||
+           type === CardPatternType2.BOMB_twelve;
+}
+
+/** 获取炸弹优先级等级（用于比较，值越大等级越高） */
 function getBombTier(type: CardPatternType2): number {
     switch (type) {
-        case CardPatternType2.BOMB_SMALL:
-        case CardPatternType2.ROCKET_SMALL:
-            return 1;  // 小
-        case CardPatternType2.BOMB_MEDIUM_SMALL:
-        case CardPatternType2.ROCKET_MEDIUM_SMALL:
-            return 2;  // 中小
-        case CardPatternType2.BOMB_MEDIUM:
-        case CardPatternType2.ROCKET_MEDIUM:
-            return 3;  // 中
-        case CardPatternType2.BOMB_MEDIUM_LARGE:
-        case CardPatternType2.ROCKET_MEDIUM_LARGE:
-            return 4;  // 中大
-        case CardPatternType2.BOMB_LARGE:
-        case CardPatternType2.ROCKET_LARGE:
-            return 5;  // 大
-        default:
-            return 0;
-    }
-}
-
-/** 获取牌型是否为炸弹 */
-function isBomb(type: CardPatternType2): boolean {
-    return type >= CardPatternType2.BOMB_SMALL && type <= CardPatternType2.BOMB_LARGE;
-}
-
-/** 获取炸弹牌型的炸弹点数（用于比较） */
-function getBombPrimaryValue(type: CardPatternType2): number {
-    switch (type) {
-        case CardPatternType2.BOMB_SMALL: return 1;      // 小炸弹最低
-        case CardPatternType2.BOMB_MEDIUM_SMALL: return 2;
-        case CardPatternType2.BOMB_MEDIUM: return 3;
-        case CardPatternType2.BOMB_MEDIUM_LARGE: return 4;
-        case CardPatternType2.BOMB_LARGE: return 5;       // 大炸弹
+        case CardPatternType2.ROCKET_six: return 60;
+        case CardPatternType2.BOMB_twelve: return 59;
+        case CardPatternType2.BOMB_eleven: return 58;
+        case CardPatternType2.ROCKET_five: return 57;
+        case CardPatternType2.BOMB_ten: return 56;
+        case CardPatternType2.BOMB_nine: return 55;
+        case CardPatternType2.ROCKET_four: return 54;
+        case CardPatternType2.BOMB_eight: return 53;
+        case CardPatternType2.BOMB_seven: return 52;
+        case CardPatternType2.ROCKET_three_LARGE: return 51;
+        case CardPatternType2.ROCKET_three_MEDIUM2: return 50;
+        case CardPatternType2.ROCKET_three_MEDIUM1: return 49;
+        case CardPatternType2.ROCKET_three_SMALL: return 48;
+        case CardPatternType2.BOMB_six: return 47;
+        case CardPatternType2.BOMB_five: return 46;
+        case CardPatternType2.ROCKET_two_LARGE: return 45;
+        case CardPatternType2.ROCKET_two_MEDIUM: return 44;
+        case CardPatternType2.ROCKET_two_SMALL: return 43;
+        case CardPatternType2.BOMB_four: return 42;
         default: return 0;
     }
 }
 
-/** 获取王炸的点数（用于比较） */
+/** 获取王炸的级别（用于比较，大小王不分开比较） */
 function getRocketPrimaryValue(type: CardPatternType2): number {
     switch (type) {
-        case CardPatternType2.ROCKET_SMALL: return 1;
-        case CardPatternType2.ROCKET_MEDIUM_SMALL: return 2;
-        case CardPatternType2.ROCKET_MEDIUM: return 3;
-        case CardPatternType2.ROCKET_MEDIUM_LARGE: return 4;
-        case CardPatternType2.ROCKET_LARGE: return 5;
+        case CardPatternType2.ROCKET_six: return 6;
+        case CardPatternType2.ROCKET_five: return 5;
+        case CardPatternType2.ROCKET_four: return 4;
+        case CardPatternType2.ROCKET_three_LARGE: return 3;
+        case CardPatternType2.ROCKET_three_MEDIUM2: return 3;
+        case CardPatternType2.ROCKET_three_MEDIUM1: return 3;
+        case CardPatternType2.ROCKET_three_SMALL: return 3;
+        case CardPatternType2.ROCKET_two_LARGE: return 2;
+        case CardPatternType2.ROCKET_two_MEDIUM: return 2;
+        case CardPatternType2.ROCKET_two_SMALL: return 2;
+        default: return 0;
+    }
+}
+
+/** 获取炸弹的级别（用于比较） */
+function getBombPrimaryValue(type: CardPatternType2): number {
+    switch (type) {
+        case CardPatternType2.BOMB_twelve: return 12;
+        case CardPatternType2.BOMB_eleven: return 11;
+        case CardPatternType2.BOMB_ten: return 10;
+        case CardPatternType2.BOMB_nine: return 9;
+        case CardPatternType2.BOMB_eight: return 8;
+        case CardPatternType2.BOMB_seven: return 7;
+        case CardPatternType2.BOMB_six: return 6;
+        case CardPatternType2.BOMB_five: return 5;
+        case CardPatternType2.BOMB_four: return 4;
         default: return 0;
     }
 }
@@ -249,17 +320,21 @@ export class CardPatternRecognizer2 {
     }
 
     /**
-     * 识别王炸牌型（不区分大小王，按数量）
-     * 小火箭(2王) → 中小火箭(3王) → 中火箭(4王) → 中大火箭(5王) → 大火箭(6王)
+     * 识别王炸牌型（区分大小王组成）
      */
     private static recognizeRocket(cards: Card[]): PatternResult | null {
-        // 统计王的数量
-        let jokerCount = 0;
+        // 统计大小王的数量
+        let smallCount = 0;
+        let bigCount = 0;
         for (const card of cards) {
-            if (card.rank === CardRank.SMALL_JOKER || card.rank === CardRank.BIG_JOKER) {
-                jokerCount++;
+            if (card.rank === CardRank.SMALL_JOKER) {
+                smallCount++;
+            } else if (card.rank === CardRank.BIG_JOKER) {
+                bigCount++;
             }
         }
+
+        const jokerCount = smallCount + bigCount;
 
         // 所有牌都是王
         if (jokerCount !== cards.length) {
@@ -271,14 +346,21 @@ export class CardPatternRecognizer2 {
             return null;
         }
 
-        // 王炸只能用2-6个王，不能带其他牌
+        // 根据王的大小和数量确定类型
         const rocketType: CardPatternType2 = (() => {
             switch (jokerCount) {
-                case 2: return CardPatternType2.ROCKET_SMALL;
-                case 3: return CardPatternType2.ROCKET_MEDIUM_SMALL;
-                case 4: return CardPatternType2.ROCKET_MEDIUM;
-                case 5: return CardPatternType2.ROCKET_MEDIUM_LARGE;
-                case 6: return CardPatternType2.ROCKET_LARGE;
+                case 2:
+                    if (smallCount >= 2) return CardPatternType2.ROCKET_two_SMALL;
+                    if (smallCount >= 1 && bigCount >= 1) return CardPatternType2.ROCKET_two_MEDIUM;
+                    return CardPatternType2.ROCKET_two_LARGE;
+                case 3:
+                    if (smallCount >= 3) return CardPatternType2.ROCKET_three_SMALL;
+                    if (smallCount >= 2 && bigCount >= 1) return CardPatternType2.ROCKET_three_MEDIUM1;
+                    if (smallCount >= 1 && bigCount >= 2) return CardPatternType2.ROCKET_three_MEDIUM2;
+                    return CardPatternType2.ROCKET_three_LARGE;
+                case 4: return CardPatternType2.ROCKET_four;
+                case 5: return CardPatternType2.ROCKET_five;
+                case 6: return CardPatternType2.ROCKET_six;
                 default: return CardPatternType2.INVALID;
             }
         })();
@@ -292,7 +374,7 @@ export class CardPatternRecognizer2 {
 
     /**
      * 识别炸弹牌型（按同点数张数分类）
-     * 小炸弹(4张) → 中小炸弹(5-6张) → 中炸弹(7-8张) → 中大炸弹(9-10张) → 大炸弹(11-12张)
+     * 4炸 → 5炸 → 6炸 → 7炸 → 8炸 → 9炸 → 10炸 → 11炸 → 12炸
      */
     private static recognizeBomb(sortedInfo: { rank: CardRank; count: number }[], count: number): PatternResult | null {
         // 需要所有牌同点数
@@ -314,11 +396,15 @@ export class CardPatternRecognizer2 {
         }
 
         const bombType: CardPatternType2 = (() => {
-            if (cardCount >= 11) return CardPatternType2.BOMB_LARGE;      // 大炸弹 11-12张
-            if (cardCount >= 9) return CardPatternType2.BOMB_MEDIUM_LARGE;  // 中大炸弹 9-10张
-            if (cardCount >= 7) return CardPatternType2.BOMB_MEDIUM;        // 中炸弹 7-8张
-            if (cardCount >= 5) return CardPatternType2.BOMB_MEDIUM_SMALL; // 中小炸弹 5-6张
-            return CardPatternType2.BOMB_SMALL;                             // 小炸弹 4张
+            if (cardCount >= 12) return CardPatternType2.BOMB_twelve;
+            if (cardCount >= 11) return CardPatternType2.BOMB_eleven;
+            if (cardCount >= 10) return CardPatternType2.BOMB_ten;
+            if (cardCount >= 9) return CardPatternType2.BOMB_nine;
+            if (cardCount >= 8) return CardPatternType2.BOMB_eight;
+            if (cardCount >= 7) return CardPatternType2.BOMB_seven;
+            if (cardCount >= 6) return CardPatternType2.BOMB_six;
+            if (cardCount >= 5) return CardPatternType2.BOMB_five;
+            return CardPatternType2.BOMB_four;
         })();
 
         return {

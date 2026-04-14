@@ -17,16 +17,25 @@ export declare enum CardPatternType2 {
     STRAIGHT_TRIPLES = 8,
     STRAIGHT_TRIPLES_WITH_WINGS_SINGLE = 9,
     STRAIGHT_TRIPLES_WITH_WINGS_PAIR = 10,
-    BOMB_SMALL = 20,
-    BOMB_MEDIUM_SMALL = 21,
-    BOMB_MEDIUM = 22,
-    BOMB_MEDIUM_LARGE = 23,
-    BOMB_LARGE = 24,
-    ROCKET_SMALL = 30,
-    ROCKET_MEDIUM_SMALL = 31,
-    ROCKET_MEDIUM = 32,
-    ROCKET_MEDIUM_LARGE = 33,
-    ROCKET_LARGE = 34
+    BOMB_four = 20,
+    ROCKET_two_SMALL = 21,
+    ROCKET_two_MEDIUM = 22,
+    ROCKET_two_LARGE = 23,
+    BOMB_five = 30,
+    BOMB_six = 31,
+    ROCKET_three_SMALL = 32,
+    ROCKET_three_MEDIUM1 = 33,
+    ROCKET_three_MEDIUM2 = 34,
+    ROCKET_three_LARGE = 35,
+    BOMB_seven = 40,
+    BOMB_eight = 41,
+    ROCKET_four = 42,
+    BOMB_nine = 50,
+    BOMB_ten = 51,
+    ROCKET_five = 52,
+    BOMB_eleven = 60,
+    BOMB_twelve = 61,
+    ROCKET_six = 62
 }
 /** 服务端手牌管理（6人场） */
 export declare class Hand2 {
@@ -61,8 +70,10 @@ export declare class GameRules2 {
     static canBeat(moveA: Move, moveB: Move | null): boolean;
     /** 从手牌生成所有能压过 lastMove 的合法出牌 */
     static generateValidMoves(hand: Hand2, lastMove: Move | null, playerId: number): Move[];
-    /** 添加所有王炸（可选：只添加能打过 lastMove 的） */
+    /** 添加所有王炸 */
     private static addRocketMoves;
+    /** 辅助方法：添加王炸到moves */
+    private static pushRocketMove;
     /** 添加所有能压过 lastPattern 的炸弹 */
     private static addBombMoves;
     /** 生成所有合法出牌（开局时使用） */

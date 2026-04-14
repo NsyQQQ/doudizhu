@@ -11,36 +11,58 @@ import { CardPatternRecognizer2, CardPatternType2 } from './CardPattern2';
 
 /** 六人场炸弹优先级（从大到小） */
 const BOMB_PRIORITY: CardPatternType2[] = [
-    CardPatternType2.ROCKET_LARGE,        // 大火箭
-    CardPatternType2.BOMB_LARGE,           // 大炸弹
-    CardPatternType2.ROCKET_MEDIUM_LARGE,  // 中大火箭
-    CardPatternType2.BOMB_MEDIUM_LARGE,    // 中大炸弹
-    CardPatternType2.ROCKET_MEDIUM,        // 中火箭
-    CardPatternType2.BOMB_MEDIUM,          // 中炸弹
-    CardPatternType2.BOMB_MEDIUM_SMALL,   // 中小炸弹
-    CardPatternType2.ROCKET_MEDIUM_SMALL,  // 中小火箭
-    CardPatternType2.ROCKET_SMALL,         // 小火箭
-    CardPatternType2.BOMB_SMALL,            // 小炸弹
+    CardPatternType2.ROCKET_six,
+    CardPatternType2.BOMB_twelve,
+    CardPatternType2.BOMB_eleven,
+
+    CardPatternType2.ROCKET_five,
+    CardPatternType2.BOMB_ten,
+    CardPatternType2.BOMB_nine,
+
+    CardPatternType2.ROCKET_four,
+    CardPatternType2.BOMB_eight,
+    CardPatternType2.BOMB_seven,
+
+    CardPatternType2.ROCKET_three_LARGE,
+    CardPatternType2.ROCKET_three_MEDIUM2,
+    CardPatternType2.ROCKET_three_MEDIUM1,
+    CardPatternType2.ROCKET_three_SMALL,
+    CardPatternType2.BOMB_six,
+    CardPatternType2.BOMB_five,
+
+    CardPatternType2.ROCKET_two_LARGE,
+    CardPatternType2.ROCKET_two_MEDIUM,
+    CardPatternType2.ROCKET_two_SMALL,
+    CardPatternType2.BOMB_four,
 ];
 
 /** 判断是否是炸弹类型（CardPatternType2） */
 function isBombType2(type: unknown): boolean {
     const t = type as CardPatternType2;
-    return t === CardPatternType2.BOMB_SMALL ||
-           t === CardPatternType2.BOMB_MEDIUM_SMALL ||
-           t === CardPatternType2.BOMB_MEDIUM ||
-           t === CardPatternType2.BOMB_MEDIUM_LARGE ||
-           t === CardPatternType2.BOMB_LARGE;
+    return t === CardPatternType2.BOMB_four ||
+           t === CardPatternType2.BOMB_five ||
+           t === CardPatternType2.BOMB_six ||
+           t === CardPatternType2.BOMB_seven ||
+           t === CardPatternType2.BOMB_eight ||
+           t === CardPatternType2.BOMB_nine ||
+           t === CardPatternType2.BOMB_ten ||
+           t === CardPatternType2.BOMB_eleven ||
+           t === CardPatternType2.BOMB_twelve;
 }
 
 /** 判断是否是王炸类型（CardPatternType2） */
 function isRocketType2(type: unknown): boolean {
     const t = type as CardPatternType2;
-    return t === CardPatternType2.ROCKET_SMALL ||
-           t === CardPatternType2.ROCKET_MEDIUM_SMALL ||
-           t === CardPatternType2.ROCKET_MEDIUM ||
-           t === CardPatternType2.ROCKET_MEDIUM_LARGE ||
-           t === CardPatternType2.ROCKET_LARGE;
+    return t === CardPatternType2.ROCKET_two_SMALL ||
+           t === CardPatternType2.ROCKET_two_MEDIUM ||
+           t === CardPatternType2.ROCKET_two_LARGE ||
+           t === CardPatternType2.ROCKET_three_SMALL ||
+           t === CardPatternType2.ROCKET_three_MEDIUM1 ||
+           t === CardPatternType2.ROCKET_three_MEDIUM2 ||
+           t === CardPatternType2.ROCKET_three_LARGE ||
+           t === CardPatternType2.ROCKET_four ||
+           t === CardPatternType2.ROCKET_five ||
+           t === CardPatternType2.ROCKET_six;
 }
 
 /** 判断是否是炸弹类型（CardPatternType） */
@@ -60,27 +82,30 @@ function getBombPriorityIndex(type: unknown): number {
     return BOMB_PRIORITY.indexOf(type as CardPatternType2);
 }
 
-/** 获取炸弹/火箭的等级（1-5），用于同级比较 */
+/** 获取炸弹/火箭的等级，用于同级比较 */
 function getBombTier(type: unknown): number {
     const t = type as CardPatternType2;
     switch (t) {
-        case CardPatternType2.BOMB_SMALL:
-        case CardPatternType2.ROCKET_SMALL:
-            return 1;  // 小
-        case CardPatternType2.BOMB_MEDIUM_SMALL:
-        case CardPatternType2.ROCKET_MEDIUM_SMALL:
-            return 2;  // 中小
-        case CardPatternType2.BOMB_MEDIUM:
-        case CardPatternType2.ROCKET_MEDIUM:
-            return 3;  // 中
-        case CardPatternType2.BOMB_MEDIUM_LARGE:
-        case CardPatternType2.ROCKET_MEDIUM_LARGE:
-            return 4;  // 中大
-        case CardPatternType2.BOMB_LARGE:
-        case CardPatternType2.ROCKET_LARGE:
-            return 5;  // 大
-        default:
-            return 0;
+        case CardPatternType2.ROCKET_six: return 10;
+        case CardPatternType2.BOMB_twelve: return 9;
+        case CardPatternType2.BOMB_eleven: return 8;
+        case CardPatternType2.ROCKET_five: return 7;
+        case CardPatternType2.BOMB_ten: return 6;
+        case CardPatternType2.BOMB_nine: return 5;
+        case CardPatternType2.ROCKET_four: return 4;
+        case CardPatternType2.BOMB_eight: return 3;
+        case CardPatternType2.BOMB_seven: return 2;
+        case CardPatternType2.ROCKET_three_LARGE: return 1;
+        case CardPatternType2.ROCKET_three_MEDIUM2: return 1;
+        case CardPatternType2.ROCKET_three_MEDIUM1: return 1;
+        case CardPatternType2.ROCKET_three_SMALL: return 1;
+        case CardPatternType2.BOMB_six: return 1;
+        case CardPatternType2.BOMB_five: return 1;
+        case CardPatternType2.ROCKET_two_LARGE: return 1;
+        case CardPatternType2.ROCKET_two_MEDIUM: return 1;
+        case CardPatternType2.ROCKET_two_SMALL: return 1;
+        case CardPatternType2.BOMB_four: return 1;
+        default: return 0;
     }
 }
 
@@ -298,53 +323,85 @@ export class GameRules2 {
     }
 
     /**
-     * 添加所有王炸出牌（可选：只添加能打过 lastMove 的）
+     * 添加所有王炸出牌
      */
     private static addRocketMoves(hand: Hand, lastMove: Move | null, playerId: number, moves: Move[]): void {
-        // 统计王的数量
-        const jokerCards = hand.cards.filter(
-            c => c.rank === CardRank.SMALL_JOKER || c.rank === CardRank.BIG_JOKER
-        );
-        const jokerCount = jokerCards.length;
+        // 分离大小王
+        const smallJokers = hand.cards.filter(c => c.rank === CardRank.SMALL_JOKER);
+        const bigJokers = hand.cards.filter(c => c.rank === CardRank.BIG_JOKER);
+        const smallCount = smallJokers.length;
+        const bigCount = bigJokers.length;
 
-        // 2-6个王可以组成王炸
-        for (let i = 2; i <= Math.min(6, jokerCount); i++) {
-            const rocketCards = jokerCards.slice(0, i);
-            const rocketType: CardPatternType2 = (() => {
-                switch (i) {
-                    case 2: return CardPatternType2.ROCKET_SMALL;
-                    case 3: return CardPatternType2.ROCKET_MEDIUM_SMALL;
-                    case 4: return CardPatternType2.ROCKET_MEDIUM;
-                    case 5: return CardPatternType2.ROCKET_MEDIUM_LARGE;
-                    case 6: return CardPatternType2.ROCKET_LARGE;
-                    default: return CardPatternType2.INVALID;
-                }
-            })();
-
-            const primaryValue = (() => {
-                switch (i) {
-                    case 2: return 1 * 10000;
-                    case 3: return 2 * 10000;
-                    case 4: return 3 * 10000;
-                    case 5: return 4 * 10000;
-                    case 6: return 5 * 10000;
-                    default: return 0;
-                }
-            })();
-
-            const rocketMove: Move = {
-                cards: rocketCards,
-                pattern: { type: rocketType as unknown as CardPatternType, primaryValue, secondaryValue: i },
-                playerId,
-            };
-
-            // 如果有上家，检查是否能打过
-            if (lastMove && lastMove.cards.length > 0) {
-                if (!this.canBeat(rocketMove, lastMove)) continue;
-            }
-
-            moves.push(rocketMove);
+        // 生成所有可能的王炸组合
+        // 2王组合
+        if (smallCount >= 2) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1]], CardPatternType2.ROCKET_two_SMALL, 1 * 10000, 2, lastMove, playerId, moves);
         }
+        if (smallCount >= 1 && bigCount >= 1) {
+            this.pushRocketMove([smallJokers[0], bigJokers[0]], CardPatternType2.ROCKET_two_MEDIUM, 1 * 10000, 2, lastMove, playerId, moves);
+        }
+        if (bigCount >= 2) {
+            this.pushRocketMove([bigJokers[0], bigJokers[1]], CardPatternType2.ROCKET_two_LARGE, 1 * 10000, 2, lastMove, playerId, moves);
+        }
+
+        // 3王组合
+        if (smallCount >= 3) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1], smallJokers[2]], CardPatternType2.ROCKET_three_SMALL, 2 * 10000, 3, lastMove, playerId, moves);
+        }
+        if (smallCount >= 2 && bigCount >= 1) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1], bigJokers[0]], CardPatternType2.ROCKET_three_MEDIUM1, 2 * 10000, 3, lastMove, playerId, moves);
+        }
+        if (smallCount >= 1 && bigCount >= 2) {
+            this.pushRocketMove([smallJokers[0], bigJokers[0], bigJokers[1]], CardPatternType2.ROCKET_three_MEDIUM2, 2 * 10000, 3, lastMove, playerId, moves);
+        }
+        if (bigCount >= 3) {
+            this.pushRocketMove([bigJokers[0], bigJokers[1], bigJokers[2]], CardPatternType2.ROCKET_three_LARGE, 2 * 10000, 3, lastMove, playerId, moves);
+        }
+
+        // 4王组合
+        if (smallCount >= 4) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1], smallJokers[2], smallJokers[3]], CardPatternType2.ROCKET_four, 3 * 10000, 4, lastMove, playerId, moves);
+        }
+        if (smallCount >= 3 && bigCount >= 1) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1], smallJokers[2], bigJokers[0]], CardPatternType2.ROCKET_four, 3 * 10000, 4, lastMove, playerId, moves);
+        }
+        if (smallCount >= 2 && bigCount >= 2) {
+            this.pushRocketMove([smallJokers[0], smallJokers[1], bigJokers[0], bigJokers[1]], CardPatternType2.ROCKET_four, 3 * 10000, 4, lastMove, playerId, moves);
+        }
+        if (smallCount >= 1 && bigCount >= 3) {
+            this.pushRocketMove([smallJokers[0], bigJokers[0], bigJokers[1], bigJokers[2]], CardPatternType2.ROCKET_four, 3 * 10000, 4, lastMove, playerId, moves);
+        }
+        if (bigCount >= 4) {
+            this.pushRocketMove([bigJokers[0], bigJokers[1], bigJokers[2], bigJokers[3]], CardPatternType2.ROCKET_four, 3 * 10000, 4, lastMove, playerId, moves);
+        }
+
+        // 5王组合
+        const total5 = Math.min(5, smallCount + bigCount);
+        if (smallCount + bigCount >= 5) {
+            // 取所有王组成5王炸
+            const allJokers = [...smallJokers, ...bigJokers].slice(0, 5);
+            this.pushRocketMove(allJokers, CardPatternType2.ROCKET_five, 4 * 10000, 5, lastMove, playerId, moves);
+        }
+
+        // 6王组合
+        if (smallCount + bigCount >= 6) {
+            const allJokers = [...smallJokers, ...bigJokers].slice(0, 6);
+            this.pushRocketMove(allJokers, CardPatternType2.ROCKET_six, 5 * 10000, 6, lastMove, playerId, moves);
+        }
+    }
+
+    /** 辅助方法：添加王炸到moves */
+    private static pushRocketMove(cards: Card[], rocketType: CardPatternType2, primaryValue: number, secondaryValue: number, lastMove: Move | null, playerId: number, moves: Move[]): void {
+        const rocketMove: Move = {
+            cards,
+            pattern: { type: rocketType as unknown as CardPatternType, primaryValue, secondaryValue },
+            playerId,
+        };
+        // 如果有上家，检查是否能打过
+        if (lastMove && lastMove.cards.length > 0) {
+            if (!this.canBeat(rocketMove, lastMove)) return;
+        }
+        moves.push(rocketMove);
     }
 
     /**
@@ -374,29 +431,37 @@ export class GameRules2 {
                 // 需要有足够的牌
                 const neededCards = (() => {
                     switch (bombType) {
-                        case CardPatternType2.BOMB_SMALL: return 4;
-                        case CardPatternType2.BOMB_MEDIUM_SMALL: return 5;
-                        case CardPatternType2.BOMB_MEDIUM: return 7;
-                        case CardPatternType2.BOMB_MEDIUM_LARGE: return 9;
-                        case CardPatternType2.BOMB_LARGE: return 11;
+                        case CardPatternType2.BOMB_four: return 4;
+                        case CardPatternType2.BOMB_five: return 5;
+                        case CardPatternType2.BOMB_six: return 6;
+                        case CardPatternType2.BOMB_seven: return 7;
+                        case CardPatternType2.BOMB_eight: return 8;
+                        case CardPatternType2.BOMB_nine: return 9;
+                        case CardPatternType2.BOMB_ten: return 10;
+                        case CardPatternType2.BOMB_eleven: return 11;
+                        case CardPatternType2.BOMB_twelve: return 12;
                         default: return 0;
                     }
                 })();
 
                 if (count < neededCards) continue;
 
-                // 检查是否比上家大（priority越小=炸弹越好）
+                // 检查是否比上家大（priority越小=炸弹越好，数组index越小=炸弹越大）
                 // 只有当上家也是炸弹时才进行优先级比较
                 const bombPriority = getBombPriorityIndex(bombType);
                 if (lastPriority >= 0 && bombPriority > lastPriority) continue;
 
                 const bombPrimaryValue = (() => {
                     switch (bombType) {
-                        case CardPatternType2.BOMB_SMALL: return 1 * 100 + rank;
-                        case CardPatternType2.BOMB_MEDIUM_SMALL: return 2 * 100 + rank;
-                        case CardPatternType2.BOMB_MEDIUM: return 3 * 100 + rank;
-                        case CardPatternType2.BOMB_MEDIUM_LARGE: return 4 * 100 + rank;
-                        case CardPatternType2.BOMB_LARGE: return 5 * 100 + rank;
+                        case CardPatternType2.BOMB_four: return 1 * 100 + rank;
+                        case CardPatternType2.BOMB_five: return 2 * 100 + rank;
+                        case CardPatternType2.BOMB_six: return 3 * 100 + rank;
+                        case CardPatternType2.BOMB_seven: return 4 * 100 + rank;
+                        case CardPatternType2.BOMB_eight: return 5 * 100 + rank;
+                        case CardPatternType2.BOMB_nine: return 6 * 100 + rank;
+                        case CardPatternType2.BOMB_ten: return 7 * 100 + rank;
+                        case CardPatternType2.BOMB_eleven: return 8 * 100 + rank;
+                        case CardPatternType2.BOMB_twelve: return 9 * 100 + rank;
                         default: return 0;
                     }
                 })();
@@ -530,51 +595,83 @@ export class GameRules2 {
 
             const rankCards = hand.getCardsByRank(rank);
 
-            // 4张 = 小炸弹
+            // 4炸
             if (count >= 4) {
                 moves.push({
                     cards: rankCards.slice(0, 4),
-                    pattern: { type: CardPatternType2.BOMB_SMALL as unknown as CardPatternType, primaryValue: 1 * 100 + rank, secondaryValue: 4 },
+                    pattern: { type: CardPatternType2.BOMB_four as unknown as CardPatternType, primaryValue: 1 * 100 + rank, secondaryValue: 4 },
                     playerId,
                 });
             }
 
-            // 5-6张 = 中小炸弹
+            // 5炸
             if (count >= 5) {
-                const size = Math.min(count, 6);
                 moves.push({
-                    cards: rankCards.slice(0, size),
-                    pattern: { type: CardPatternType2.BOMB_MEDIUM_SMALL as unknown as CardPatternType, primaryValue: 2 * 100 + rank, secondaryValue: size },
+                    cards: rankCards.slice(0, 5),
+                    pattern: { type: CardPatternType2.BOMB_five as unknown as CardPatternType, primaryValue: 2 * 100 + rank, secondaryValue: 5 },
                     playerId,
                 });
             }
 
-            // 7-8张 = 中炸弹
+            // 6炸
+            if (count >= 6) {
+                moves.push({
+                    cards: rankCards.slice(0, 6),
+                    pattern: { type: CardPatternType2.BOMB_six as unknown as CardPatternType, primaryValue: 3 * 100 + rank, secondaryValue: 6 },
+                    playerId,
+                });
+            }
+
+            // 7炸
             if (count >= 7) {
-                const size = Math.min(count, 8);
                 moves.push({
-                    cards: rankCards.slice(0, size),
-                    pattern: { type: CardPatternType2.BOMB_MEDIUM as unknown as CardPatternType, primaryValue: 3 * 100 + rank, secondaryValue: size },
+                    cards: rankCards.slice(0, 7),
+                    pattern: { type: CardPatternType2.BOMB_seven as unknown as CardPatternType, primaryValue: 4 * 100 + rank, secondaryValue: 7 },
                     playerId,
                 });
             }
 
-            // 9-10张 = 中大炸弹
+            // 8炸
+            if (count >= 8) {
+                moves.push({
+                    cards: rankCards.slice(0, 8),
+                    pattern: { type: CardPatternType2.BOMB_eight as unknown as CardPatternType, primaryValue: 5 * 100 + rank, secondaryValue: 8 },
+                    playerId,
+                });
+            }
+
+            // 9炸
             if (count >= 9) {
-                const size = Math.min(count, 10);
                 moves.push({
-                    cards: rankCards.slice(0, size),
-                    pattern: { type: CardPatternType2.BOMB_MEDIUM_LARGE as unknown as CardPatternType, primaryValue: 4 * 100 + rank, secondaryValue: size },
+                    cards: rankCards.slice(0, 9),
+                    pattern: { type: CardPatternType2.BOMB_nine as unknown as CardPatternType, primaryValue: 6 * 100 + rank, secondaryValue: 9 },
                     playerId,
                 });
             }
 
-            // 11-12张 = 大炸弹
-            if (count >= 11) {
-                const size = Math.min(count, 12);
+            // 10炸
+            if (count >= 10) {
                 moves.push({
-                    cards: rankCards.slice(0, size),
-                    pattern: { type: CardPatternType2.BOMB_LARGE as unknown as CardPatternType, primaryValue: 5 * 100 + rank, secondaryValue: size },
+                    cards: rankCards.slice(0, 10),
+                    pattern: { type: CardPatternType2.BOMB_ten as unknown as CardPatternType, primaryValue: 7 * 100 + rank, secondaryValue: 10 },
+                    playerId,
+                });
+            }
+
+            // 11炸
+            if (count >= 11) {
+                moves.push({
+                    cards: rankCards.slice(0, 11),
+                    pattern: { type: CardPatternType2.BOMB_eleven as unknown as CardPatternType, primaryValue: 8 * 100 + rank, secondaryValue: 11 },
+                    playerId,
+                });
+            }
+
+            // 12炸
+            if (count >= 12) {
+                moves.push({
+                    cards: rankCards.slice(0, 12),
+                    pattern: { type: CardPatternType2.BOMB_twelve as unknown as CardPatternType, primaryValue: 9 * 100 + rank, secondaryValue: 12 },
                     playerId,
                 });
             }

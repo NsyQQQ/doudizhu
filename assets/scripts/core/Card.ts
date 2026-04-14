@@ -97,3 +97,29 @@ export function getCardDisplayName(card: Card): string {
 
     return suitNames[card.suit] + rankNames[card.rank];
 }
+
+/** 根据卡牌ID解码为卡牌对象（6人场3副牌支持）
+ * @param cardId 卡牌ID（格式: deck*1000 + indexWithinDeck）
+ * @returns 卡牌对象
+ */
+export function decodeCardId(cardId: number): Card {
+    const indexWithinDeck = cardId % 1000;
+    let suit: CardSuit;
+    let rank: CardRank;
+
+    if (indexWithinDeck >= 52) {
+        // 王牌：52=小王，53=大王
+        suit = CardSuit.JOKER;
+        rank = indexWithinDeck === 52 ? CardRank.SMALL_JOKER : CardRank.BIG_JOKER;
+    } else {
+        suit = (Math.floor(indexWithinDeck / 13)) as CardSuit;
+        rank = ((indexWithinDeck % 13) + CardRank.THREE) as CardRank;
+    }
+
+    return { id: cardId, suit, rank };
+}
+
+/** 解码卡牌ID数组为卡牌对象数组 */
+export function decodeCardIds(cardIds: number[]): Card[] {
+    return cardIds.map(id => decodeCardId(id));
+}

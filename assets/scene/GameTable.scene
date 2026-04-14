@@ -18,12 +18,18 @@
     "_children": [
       {
         "__id__": 2
+      },
+      {
+        "__id__": 147
+      },
+      {
+        "__id__": 150
       }
     ],
     "_active": true,
     "_components": [],
     "_prefab": {
-      "__id__": 150
+      "__id__": 154
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -54,7 +60,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 151
+      "__id__": 155
     },
     "_id": "4b5eaf56-d223-4b06-821e-12b4b31feab9"
   },
@@ -96,13 +102,19 @@
       },
       {
         "__id__": 117
-      },
-      {
-        "__id__": 139
       }
     ],
     "_active": true,
     "_components": [
+      {
+        "__id__": 139
+      },
+      {
+        "__id__": 140
+      },
+      {
+        "__id__": 141
+      },
       {
         "__id__": 142
       },
@@ -117,15 +129,6 @@
       },
       {
         "__id__": 146
-      },
-      {
-        "__id__": 147
-      },
-      {
-        "__id__": 148
-      },
-      {
-        "__id__": 149
       }
     ],
     "_prefab": null,
@@ -3083,6 +3086,7 @@
     "hintButton": {
       "__id__": 64
     },
+    "selectLandlordButton": null,
     "playLabel": {
       "__id__": 68
     },
@@ -5823,88 +5827,6 @@
     "_id": "a2VPtI2Y5JNq+CPx+0OQrB"
   },
   {
-    "__type__": "cc.Node",
-    "_name": "GameController",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "_parent": {
-      "__id__": 2
-    },
-    "_children": [],
-    "_active": true,
-    "_components": [
-      {
-        "__id__": 140
-      },
-      {
-        "__id__": 141
-      }
-    ],
-    "_prefab": null,
-    "_lpos": {
-      "__type__": "cc.Vec3",
-      "x": -3.145,
-      "y": 1.398,
-      "z": 0
-    },
-    "_lrot": {
-      "__type__": "cc.Quat",
-      "x": 0,
-      "y": 0,
-      "z": 0,
-      "w": 1
-    },
-    "_lscale": {
-      "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
-      "z": 1
-    },
-    "_mobility": 0,
-    "_layer": 33554432,
-    "_euler": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "_id": "d52FUiXQ1OUZsbjcxrjZxe"
-  },
-  {
-    "__type__": "cc.UITransform",
-    "_name": "",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "node": {
-      "__id__": 139
-    },
-    "_enabled": true,
-    "__prefab": null,
-    "_contentSize": {
-      "__type__": "cc.Size",
-      "width": 100,
-      "height": 100
-    },
-    "_anchorPoint": {
-      "__type__": "cc.Vec2",
-      "x": 0.5,
-      "y": 0.5
-    },
-    "_id": "89cD8y7mhOiqKSpsxzRYDA"
-  },
-  {
-    "__type__": "ddd4eoLGe9G+qov1cLViiNO",
-    "_name": "",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "node": {
-      "__id__": 139
-    },
-    "_enabled": true,
-    "__prefab": null,
-    "_id": "b91qcp4KBKooA+cs6INiRZ"
-  },
-  {
     "__type__": "cc.UITransform",
     "_name": "",
     "_objFlags": 0,
@@ -6088,6 +6010,192 @@
     "_id": "14od4z1ENCi470AJcIy2XU"
   },
   {
+    "__type__": "cc.Node",
+    "_name": "GameController",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 1
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 148
+      },
+      {
+        "__id__": 149
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 636.855,
+      "y": 361.3980000000001,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "d52FUiXQ1OUZsbjcxrjZxe"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 147
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 100,
+      "height": 100
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "89cD8y7mhOiqKSpsxzRYDA"
+  },
+  {
+    "__type__": "ddd4eoLGe9G+qov1cLViiNO",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 147
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_id": "b91qcp4KBKooA+cs6INiRZ"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "AudioManager",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 1
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 151
+      },
+      {
+        "__id__": 152
+      },
+      {
+        "__id__": 153
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "5cimYKynNArogs2MjVgyH2"
+  },
+  {
+    "__type__": "5b8d9Mo3YxJkqUT5lzqIBxj",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 150
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "bgmSource": {
+      "__id__": 152
+    },
+    "sfxSource": {
+      "__id__": 153
+    },
+    "_id": "0fNnPh79NEvZBg6OyuXzbz"
+  },
+  {
+    "__type__": "cc.AudioSource",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 150
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_clip": {
+      "__uuid__": "0137c3ff-bb97-4a33-b422-05542669a999",
+      "__expectedType__": "cc.AudioClip"
+    },
+    "_loop": true,
+    "_playOnAwake": true,
+    "_volume": 1,
+    "_id": "55j5tppAFBerjGzqPLjByc"
+  },
+  {
+    "__type__": "cc.AudioSource",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 150
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_clip": null,
+    "_loop": false,
+    "_playOnAwake": false,
+    "_volume": 1,
+    "_id": "17yZ5rDOZFYJX1NywgYbD9"
+  },
+  {
     "__type__": "cc.PrefabInfo",
     "root": null,
     "asset": null,
@@ -6098,28 +6206,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 152
-    },
-    "shadows": {
-      "__id__": 153
-    },
-    "_skybox": {
-      "__id__": 154
-    },
-    "fog": {
-      "__id__": 155
-    },
-    "octree": {
       "__id__": 156
     },
-    "skin": {
+    "shadows": {
       "__id__": 157
     },
-    "lightProbeInfo": {
+    "_skybox": {
       "__id__": 158
     },
-    "postSettings": {
+    "fog": {
       "__id__": 159
+    },
+    "octree": {
+      "__id__": 160
+    },
+    "skin": {
+      "__id__": 161
+    },
+    "lightProbeInfo": {
+      "__id__": 162
+    },
+    "postSettings": {
+      "__id__": 163
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false
