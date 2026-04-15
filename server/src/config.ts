@@ -13,7 +13,7 @@ export const DB_CONFIG = {
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || (IS_PRODUCTION ? '123456' : '123456'),
-    database: process.env.DB_NAME || (IS_PRODUCTION ? 'nsyqqq' : 'doudizhu'),
+    database: process.env.DB_NAME || (IS_PRODUCTION ? 'doudizhu' : 'doudizhu'),
 };
 
 // ==================== 服务器配置 ====================

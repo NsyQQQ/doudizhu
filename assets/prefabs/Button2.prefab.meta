@@ -2,12 +2,12 @@
   "ver": "1.1.50",
   "importer": "prefab",
   "imported": true,
-  "uuid": "ebd65912-bc69-4ebf-bc71-152894b9312c",
+  "uuid": "5a88daa2-3b4c-426c-b649-41899ef084fe",
   "files": [
     ".json"
   ],
   "subMetas": {},
   "userData": {
-    "syncNodeName": "Room"
+    "syncNodeName": "Button2"
   }
 }

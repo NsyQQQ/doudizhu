@@ -23,7 +23,6 @@ export class DebugConsole extends Component {
     private static instance: DebugConsole = null;
 
     start() {
-        console.log('[DebugConsole] start() called');
         if (DebugConsole.instance) {
             this.destroy();
             return;
@@ -55,7 +54,6 @@ export class DebugConsole extends Component {
         // 创建右下角按钮容器
         const button = new Node('DebugButton');
         button.parent = canvas;
-        console.log('[DebugConsole] Button created, parent:', canvas.name);
 
         const buttonTrans = button.addComponent(UITransform);
         buttonTrans.setContentSize(60, 60);

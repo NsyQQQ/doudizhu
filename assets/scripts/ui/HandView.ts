@@ -31,13 +31,11 @@ export class HandView extends Component {
 
     private onHintRequested(data: { cards: Card[] }): void {
         const idsToSelect = new Set(data.cards.map(c => c.id));
-        console.log(`[提示处理] 收到提示: ${data.cards.map(c => c.id).join(',')} (${data.cards.length}张), 需要选中: ${[...idsToSelect].join(',')}, cardNodes数量: ${this.cardNodes?.length || 0}`);
         // 清除之前的选中
         this.clearSelection();
 
         // 选中提示的所有牌
         if (!this.cardNodes || this.cardNodes.length === 0) {
-            console.log(`[提示处理] cardNodes为空`);
             return;
         }
 
@@ -45,7 +43,6 @@ export class HandView extends Component {
             const cv = node.getComponent(CardView);
             const card = cv?.getCard();
             if (card && idsToSelect.has(card.id)) {
-                console.log(`[提示处理] 匹配卡牌: ${card.id}`);
                 cv?.setSelected(true);
                 if (!this.selectedCards.some(c => c.id === card.id)) {
                     this.selectedCards.push(card);
@@ -53,7 +50,6 @@ export class HandView extends Component {
             }
         }
 
-        console.log(`[提示处理] 选中结果: ${this.selectedCards.map(c => c.id).join(',')} (${this.selectedCards.length}张)`);
         EventBus.emit(GameEvents.CARD_SELECTED, { cards: [...this.selectedCards] });  // 发送副本避免引用问题
     }
 

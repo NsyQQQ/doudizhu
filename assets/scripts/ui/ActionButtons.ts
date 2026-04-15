@@ -5,7 +5,6 @@
 import { _decorator, Component, Button, Label } from 'cc';
 import { EventBus, GameEvents } from '../shared/EventBus';
 import { Card } from '../core/Card';
-import { CardPatternType } from '../core/Card';
 import { GameRules } from '../core/GameRules';
 import { GameRules2 } from '../core/GameRules2';
 import { Hand } from '../core/Hand';
@@ -62,8 +61,6 @@ export class ActionButtons extends Component {
     private boundOnGameDealt: () => void = null!;
 
     start() {
-        console.log('[ActionButtons] start called');
-        console.log('[ActionButtons] playButton:', !!this.playButton, 'passButton:', !!this.passButton, 'hintButton:', !!this.hintButton);
         this.boundOnGameStarted = this.onGameStarted.bind(this);
         this.boundOnTurnChanged = this.onTurnChanged.bind(this);
         this.boundOnCardSelected = this.onCardSelected.bind(this);
@@ -73,7 +70,6 @@ export class ActionButtons extends Component {
         this.setupEventListeners();
         this.setupButtonEvents();
         this.updateButtonState();
-        console.log('[ActionButtons] start complete, isMyTurn:', this.isMyTurn);
     }
 
     private setupEventListeners(): void {
@@ -86,7 +82,7 @@ export class ActionButtons extends Component {
 
     /** 是否是6人场模式 */
     private isSixPlayerMode(): boolean {
-        return CURRENT_ROOM_TYPE === 5;
+        return CURRENT_ROOM_TYPE === 4;
     }
 
     /** 获取当前规则的generateValidMoves */
@@ -140,37 +136,24 @@ export class ActionButtons extends Component {
     private onTurnChanged(data: { playerId: number }): void {
         // 如果正在播放发牌动画，忽略回合变化（等待动画结束后的正式回合通知）
         if (this.dealingAnimationActive) {
-            console.log(`[onTurnChanged] 忽略回合变化（发牌动画中），玩家${data.playerId}`);
             return;
         }
         this.isMyTurn = data.playerId === CURRENT_PLAYER_INDEX;
         // 回合变化时，清空提示，重新生成
         this.hintMoves = [];
         this.hintIndex = 0;
-        console.log(`[onTurnChanged] 回合变化为玩家${data.playerId}，isMyTurn=${this.isMyTurn}，清空提示`);
         this.updateButtonState();
     }
 
     private onCardSelected(data: { cards: Card[] }): void {
         this.selectedCards = [...data.cards];  // 复制数组，避免引用问题
-        console.log(`[选牌] ${data.cards.map(c => `id${c.id}rank${c.rank}`).join(',')} (${data.cards.length}张)`);
-        console.log(`[选牌] selectedCards now has length: ${this.selectedCards.length}`);
-        // 检查card.rank是否有效
-        for (const card of this.selectedCards) {
-            if (card.rank === undefined) {
-                console.log('[选牌] WARNING: card.rank is undefined! card.id:', card.id);
-            }
-        }
         this.updateButtonState();
     }
 
     private onRoundCleared(): void {
-        console.log(`[ActionButtons onRoundCleared] 被调用, lastMove: ${this.lastMove ? this.lastMove.cards.map(c => c.id).join(',') : 'null'}`);
         // 回合清除时，清空 lastMove
         if (this.lastMove !== null) {
             this.waitingForRoundClear = true;
-            console.log(`[回合清除] 设置 waitingForRoundClear = true`);
-            console.log(`[回合清除] 直接清空 lastMove`);
             this.lastMove = null;
             this.waitingForRoundClear = false; // 重置标记，避免阻塞后续的 setLastMove
             this.updateButtonState();
@@ -178,12 +161,10 @@ export class ActionButtons extends Component {
         // 回合清除时，清空提示
         this.hintMoves = [];
         this.hintIndex = 0;
-        console.log(`[回合清除] 清空提示`);
     }
 
     /** 发牌动画开始时调用 */
     private onGameDealt(): void {
-        console.log(`[ActionButtons onGameDealt] 发牌动画开始`);
         this.dealingAnimationActive = true;
         // 立即隐藏按钮，不等待 updateButtonState
         if (this.playButton) this.playButton.node.active = false;
@@ -193,22 +174,17 @@ export class ActionButtons extends Component {
 
     /** 发牌动画结束调用（在GameTableCtrl的动画回调中调用） */
     public onDealingAnimationEnd(): void {
-        console.log(`[ActionButtons onDealingAnimationEnd] 发牌动画结束`);
         this.dealingAnimationActive = false;
         this.updateButtonState();
     }
 
     setHand(hand: Hand): void {
-        if (this.hand !== hand) {
-            console.log(`[setHand] 设置为: ${hand?.cards.map(c => `${c.id}(rank${c.rank})`).join(',') || 'null'} (${hand?.cards.length || 0}张)`);
-        }
         this.hand = hand;
     }
 
     setLastMove(move: Move | null): void {
         // 如果正在等待 round_clear 处理，只允许设置非 null 值
         if (this.waitingForRoundClear && move === null) {
-            console.log(`[setLastMove] 跳过（等待round_clear）`);
             return;
         }
         this.waitingForRoundClear = false;
@@ -217,25 +193,25 @@ export class ActionButtons extends Component {
         if (this.lastMove === move) return;
         if (this.lastMove && move && this.lastMove.cards.map(c => c.id).join(',') === move.cards.map(c => c.id).join(',')) return;
 
-        const lastMoveInfo = move ? `${move.cards.map(c => c.id).join(',')} rank${move.pattern.primaryValue}` : 'null';
-        console.log(`[setLastMove] 设置为: ${lastMoveInfo}`);
         this.lastMove = move;
         this.updateButtonState();
     }
 
     public updateButtonState(): void {
-        console.log('[ActionButtons updateButtonState] called, playButton:', !!this.playButton, 'isMyTurn:', this.isMyTurn, 'dealingAnimationActive:', this.dealingAnimationActive);
         // 3人场没有 selectLandlordButton，只检查实际需要的按钮
         if (!this.playButton || !this.passButton || !this.hintButton) return;
 
-        console.log(`[updateButtonState] buttons exist, selectingLandlordCards:`, this.selectingLandlordCards);
+        // 始终显示按钮，用 interactable 控制是否可点击
+        this.playButton.node.active = true;
+        this.passButton.node.active = true;
+        this.hintButton.node.active = true;
 
         // 如果是选择地主牌阶段，只显示选牌按钮（6人场）
         if (this.selectingLandlordCards && this.selectLandlordButton) {
             this.playButton.node.active = false;
             this.passButton.node.active = false;
             this.hintButton.node.active = false;
-            this.selectLandlordButton.node.active = this.isMyTurn;
+            this.selectLandlordButton.node.active = true;
 
             // 选牌按钮：需要选中1张牌才能点击
             const canSelect = this.selectedCards.length === 1;
@@ -243,19 +219,19 @@ export class ActionButtons extends Component {
             return;
         }
 
-        const showButtons = this.isMyTurn;
-        const canPass = this.isMyTurn && this.lastMove !== null;
-        console.log('[ActionButtons updateButtonState] showButtons:', showButtons, 'isMyTurn:', this.isMyTurn);
-        this.playButton.node.active = showButtons;
-        this.passButton.node.active = canPass;  // 只有跟上家出牌时才能不出
-        console.log(`[updateButtonState] playButton.active=${this.playButton.node.active}, interactable=${this.playButton.interactable}, passButton.active=${canPass}, interactable=${canPass}`);
-        this.hintButton.node.active = showButtons;
+        const isMyTurn = this.isMyTurn;
+        const canPass = isMyTurn && this.lastMove !== null;
+
+        // 始终启用按钮，用 interactable 控制状态
+        this.playButton.interactable = false;
+        this.passButton.interactable = canPass;  // 只有跟上家出牌时才能不出
+        this.hintButton.interactable = isMyTurn;
+
         if (this.selectLandlordButton) {
             this.selectLandlordButton.node.active = false;
         }
 
-        if (!showButtons) {
-            console.log('[ActionButtons updateButtonState] buttons hidden');
+        if (!isMyTurn) {
             return;
         }
 
@@ -267,16 +243,6 @@ export class ActionButtons extends Component {
 
             // 用选中牌的rank排序列表来判断是否匹配（跨场次通用）
             const selectedRanks = this.selectedCards.map(c => c.rank).sort((a, b) => a - b);
-            console.log('[canPlay] selectedCards:', this.selectedCards.map(c => `id${c.id}rank${c.rank}`).join(','));
-            console.log('[canPlay] selectedRanks:', selectedRanks.join(','));
-            console.log('[canPlay] validMoves count:', validMoves.length);
-
-            // 找出validMoves中长度等于选中牌长度的所有rank组合
-            const sameLengthMoves = validMoves.filter(m => m.cards.length === selectedRanks.length);
-            console.log('[canPlay] sameLengthMoves count:', sameLengthMoves.length);
-            if (sameLengthMoves.length > 0) {
-                console.log('[canPlay] first sameLengthMove ranks:', sameLengthMoves[0].cards.map(c => c.rank).sort((a,b)=>a-b).join(','));
-            }
 
             canPlay = validMoves.some(m => {
                 const moveRanks = m.cards.map(c => c.rank).sort((a, b) => a - b);
@@ -286,7 +252,6 @@ export class ActionButtons extends Component {
                 }
                 return true;
             });
-            console.log('[canPlay] final canPlay:', canPlay);
         }
 
         this.playButton.interactable = canPlay;
@@ -294,20 +259,9 @@ export class ActionButtons extends Component {
             this.playLabel.string = canPlay ? '出牌' : '请选牌';
         }
 
-        this.passButton.interactable = canPass;
-        if (this.passLabel) {
-            this.passLabel.string = '不出';
-        }
-        console.log(`[updateButtonState] canPlay=${canPlay}, canPass=${canPass}, selectedCards=${this.selectedCards.length}, lastMove=${this.lastMove ? 'set' : 'null'}`);
-
         // 提示按钮：仅当有可出的牌时可用
-        if (this.hand) {
+        if (this.hintButton && this.hand) {
             const validMoves = this.generateValidMoves(this.hand, this.lastMove, 0);
-            const lastMoveInfo = this.lastMove
-                ? `lastMove: ${this.lastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${this.lastMove.pattern.type}`
-                : 'lastMove: null';
-            console.log(`[updateButtonState] hand: ${this.hand.cards.length}张, ${lastMoveInfo}, validMoves: ${validMoves.length}`);
-
             const hasValidPlay = validMoves.some(m => m.cards.length > 0);
             this.hintButton.interactable = hasValidPlay;
         }
@@ -331,21 +285,11 @@ export class ActionButtons extends Component {
 
     private onHintClicked(): void {
         if (!this.hand) {
-            console.log(`[提示] hand为空`);
             return;
         }
 
-        const lastMoveInfo = this.lastMove
-            ? `lastMove: ${this.lastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${this.lastMove.pattern.type} count: ${this.lastMove.cards.length}`
-            : 'lastMove: null';
-        console.log(`[提示] 当前hand: ${this.hand.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} (${this.hand.cards.length}张), ${lastMoveInfo}`);
-
         // 如果还没有提示，或者上一轮已经用完，重新生成所有提示
         if (this.hintMoves.length === 0 || this.hintIndex >= this.hintMoves.length) {
-            const lastMoveInfo = this.lastMove
-                ? `lastMove: ${this.lastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${this.lastMove.pattern.type} count: ${this.lastMove.cards.length}`
-                : 'lastMove: null';
-            console.log(`[提示] 重新生成提示, ${lastMoveInfo}`);
             const validMoves = this.generateValidMoves(this.hand, this.lastMove, 0);
             // 过滤掉 PASS，只保留实际出牌
             let actualPlays = validMoves.filter(m => m.cards.length > 0);
@@ -354,24 +298,18 @@ export class ActionButtons extends Component {
             // 6人场不过滤，因为炸弹可能打得过王炸（如5炸 > 2王炸）
             if (this.lastMove && this.lastMove.cards.length > 0 && !this.isSixPlayerMode()) {
                 const lastType = this.lastMove.pattern.type;
-                // CardPatternType2 新炸弹类型: 20,30,31,40,41,50,51,60,61
-                // CardPatternType2 新王炸类型: 21,22,23,32,33,34,35,42,52,62
-                // CardPatternType 炸弹: 11, 王炸: 12
                 const isLastMoveBomb = lastType === 11 || this.isBombType2(lastType);
                 const isLastMoveRocket = lastType === 12 || this.isRocketType2(lastType);
                 if (isLastMoveBomb || isLastMoveRocket) {
                     // 只保留炸弹或王炸
-                    const beforeCount = actualPlays.length;
                     actualPlays = actualPlays.filter(m => {
                         const t = m.pattern.type;
                         const isBomb = m.cards.length >= 4 && (t === 11 || this.isBombType2(t));
                         const isRocket = m.cards.length >= 2 && (t === 12 || this.isRocketType2(t));
                         return isBomb || isRocket;
                     });
-                    console.log(`[提示] 防御性过滤: 上家是${isLastMoveBomb ? '炸弹' : '王炸'}，过滤掉${beforeCount - actualPlays.length}个非法提示`);
                 }
             }
-            console.log(`[提示] 重新生成提示, actualPlays数量: ${actualPlays.length}`);
 
             // 按从小到大排序：先按牌型长度排序（少的优先），再按 primaryValue 排序
             actualPlays = actualPlays.sort((a, b) => {
@@ -381,15 +319,6 @@ export class ActionButtons extends Component {
                 return a.pattern.primaryValue - b.pattern.primaryValue;
             });
 
-            // 按牌型分组统计
-            const typeCount = new Map<number, number>();
-            for (const play of actualPlays) {
-                typeCount.set(play.pattern.type, (typeCount.get(play.pattern.type) || 0) + 1);
-            }
-            console.log(`[提示] 牌型分布: ${[...typeCount.entries()].map(([t, c]) => `type${t}:${c}`).join(', ')}`);
-            for (let i = 0; i < Math.min(3, actualPlays.length); i++) {
-                console.log(`[提示] 可出牌${i}: ${actualPlays[i].cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${actualPlays[i].pattern.type}`);
-            }
             if (actualPlays.length === 0) return;
 
             this.hintMoves = actualPlays;
@@ -403,13 +332,11 @@ export class ActionButtons extends Component {
         const hintCardIds = currentMove.cards.map(c => c.id);
         const allCardsInHand = hintCardIds.every(id => handCardIds.has(id));
         if (!allCardsInHand) {
-            console.log(`[提示] 提示的牌${hintCardIds.join(',')}不在当前手牌中，重新生成提示`);
             this.hintMoves = [];
             this.hintIndex = 0;
             // 重新生成提示会发生在下一轮（这次直接返回）
             return;
         }
-        console.log(`[提示] 第${this.hintIndex + 1}/${this.hintMoves.length}个提示: ${currentMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${currentMove.pattern.type}`);
 
         // 移动到下一个提示
         this.hintIndex = (this.hintIndex + 1) % this.hintMoves.length;
@@ -437,13 +364,10 @@ export class ActionButtons extends Component {
 
     /** 选择地主牌按钮点击 */
     private onSelectLandlordClicked(): void {
-        console.log(`[选择地主牌按钮] 点击，选中${this.selectedCards.length}张牌`);
         if (this.selectedCards.length === 1) {
             // 发送选择地主牌事件
             EventBus.emit(GameEvents.SELECT_LANDLORD_CARDS, { card: this.selectedCards[0] });
             this.selectedCards = [];
-        } else {
-            console.log(`[选择地主牌按钮] 需要且只能选择1张牌，当前选中${this.selectedCards.length}张`);
         }
     }
 

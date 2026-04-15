@@ -13,6 +13,7 @@ export interface Room {
     id: number;
     room_code: string;
     type: number;
+    game_type: number;
     status: 'waiting' | 'playing' | 'ended';
     host_id: number;
     players: RoomPlayer[];

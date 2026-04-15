@@ -9,7 +9,7 @@ export class RoomService {
   }
 
   /** 创建房间 */
-  async createRoom(hostId: number, type: number = 1): Promise<Room | null> {
+  async createRoom(hostId: number, type: number = 1, gameType: number = 1): Promise<Room | null> {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -27,8 +27,8 @@ export class RoomService {
       };
 
       const [result] = await connection.query<ResultSetHeader>(
-        'INSERT INTO rooms (room_code, type, status, host_id, players) VALUES (?, ?, ?, ?, ?)',
-        [roomCode, type, 'waiting', hostId, JSON.stringify([initialPlayer])]
+        'INSERT INTO rooms (room_code, type, game_type, status, host_id, players) VALUES (?, ?, ?, ?, ?, ?)',
+        [roomCode, type, gameType, 'waiting', hostId, JSON.stringify([initialPlayer])]
       );
 
       await connection.commit();
@@ -38,6 +38,7 @@ export class RoomService {
           id: result.insertId,
           room_code: roomCode,
           type,
+          game_type: gameType,
           status: 'waiting',
           host_id: hostId,
           players: [initialPlayer],
@@ -194,7 +195,7 @@ export class RoomService {
       );
       return rows.map(row => ({
         ...row,
-        players: JSON.parse(row.players as string)
+        players: typeof row.players === 'string' ? JSON.parse(row.players) : row.players
       })) as Room[];
     } catch (error) {
       console.error('[RoomService] getAllRooms error:', error);

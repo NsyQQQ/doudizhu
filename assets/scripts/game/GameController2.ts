@@ -12,7 +12,7 @@ import { CardPatternRecognizer } from '../core/CardPattern';
 import { EventBus, GameEvents } from '../shared/EventBus';
 import { GameState } from '../shared/Constants';
 import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
-import { ROOM_PLAYER_COUNTS, CURRENT_ROOM_TYPE } from '../shared/Constants';
+import { getPlayerCountByRoomType, CURRENT_ROOM_TYPE } from '../shared/Constants';
 
 const { ccclass, property } = _decorator;
 
@@ -43,7 +43,7 @@ export class GameController2 extends Component {
 
     start() {
         // 根据房间类型获取玩家数量
-        this.playerCount = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 6;
+        this.playerCount = getPlayerCountByRoomType(CURRENT_ROOM_TYPE);
 
         this.initPlayers();
         this.setupEventListeners();
@@ -82,11 +82,9 @@ export class GameController2 extends Component {
 
         // 地主确定
         this.onLandlordSelectedHandler = (data: any) => {
-            console.log(`[GameController2 onLandlordSelectedHandler] landlordId=${data.landlordId}, hiddenIds=${JSON.stringify(data.hiddenLandlordIds)}, landlordCardId=${data.landlordCardId}, landlordCardSuit=${data.landlordCardSuit}, landlordCardRank=${data.landlordCardRank}`);
             this.landlordId = data.landlordId;
             this.hiddenLandlordIds = data.hiddenLandlordIds || [];
             this.landlordCardId = data.landlordCardId !== undefined ? data.landlordCardId : -1;
-            console.log(`[GameController2 onLandlordSelectedHandler] after setting: landlordCardId=${this.landlordCardId}`);
             // 设置明地主
             if (this.players[this.landlordId]) {
                 this.players[this.landlordId].isLandlord = true;
@@ -98,7 +96,6 @@ export class GameController2 extends Component {
                 }
             }
             EventBus.emit(GameEvents.LANDLORD_SELECTED, { playerId: data.landlordId, hiddenLandlordIds: this.hiddenLandlordIds, landlordCardId: this.landlordCardId, landlordCardSuit: data.landlordCardSuit, landlordCardRank: data.landlordCardRank });
-            console.log(`[GameController2] emit LANDLORD_SELECTED: landlordId=${data.landlordId}, hiddenIds=${JSON.stringify(this.hiddenLandlordIds)}`);
         };
 
         // 回合变化
@@ -139,13 +136,9 @@ export class GameController2 extends Component {
             const sameLandlordCards = this.landlordCards.length === data.landlordCards?.length &&
                 this.landlordCards.every((c, i) => c.id === data.landlordCards[i]?.id);
             if (sameLandlordCards) {
-                console.log('[GameController2] handleGameDealt ignored: duplicate landlord cards');
                 return;
             }
-            console.log('[GameController2] handleGameDealt: new game detected, resetting state');
         }
-
-        console.log('[GameController2] handleGameDealt called, hand:', data.hand?.length);
 
         // 重置所有游戏状态
         this.lastMove = null;
@@ -171,7 +164,6 @@ export class GameController2 extends Component {
         const hands: Card[][] = Array.from({ length: this.playerCount }, () => []);
         hands[0] = [...myHand]; // 自己始终是位置0
 
-        console.log('[GameController2] emitDealtEvent, myHand length:', myHand.length, 'landlordId:', this.landlordId, 'hiddenLandlordIds:', this.hiddenLandlordIds);
         EventBus.emit(GameEvents.GAME_DEALT, {
             hands,
             landlordCards: this.landlordCards,
@@ -197,7 +189,6 @@ export class GameController2 extends Component {
             };
 
             this.lastMove = move;
-            console.log(`[handleRemoteAction] 玩家${playerId}出牌`);
         }
     }
 

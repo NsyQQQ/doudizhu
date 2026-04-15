@@ -73,7 +73,6 @@ export class AudioManager extends Component {
         this.bgmSource.loop = loop;
         this.bgmSource.play();
         this._isBGMPlaying = true;
-        console.log('[AudioManager] BGM started:', clipPath);
     }
 
     /**
@@ -137,7 +136,6 @@ export class AudioManager extends Component {
      */
     playSFX(clipPath: string): void {
         if (!clipPath) return;
-        console.log('[AudioManager] playSFX:', clipPath);
 
         const now = Date.now();
         if (this._lastSFXPath === clipPath && now - this._lastSFXTime < 300) return;

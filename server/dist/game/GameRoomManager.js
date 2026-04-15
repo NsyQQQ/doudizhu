@@ -13,17 +13,17 @@ class GameRoomManager {
         this.nextRoomId = 1;
     }
     /** 创建房间 */
-    async createRoom(hostId, hostInfo, roomType = 1) {
+    async createRoom(hostId, hostInfo, roomType = 1, gameType = 1) {
         // 生成6位房间号
         const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
         const roomId = this.nextRoomId++;
-        const room = new GameRoom_1.GameRoom(roomCode, roomId, roomType);
+        const room = new GameRoom_1.GameRoom(roomCode, roomId, roomType, gameType);
         room.addPlayer(hostInfo);
         this.rooms.set(roomCode, room);
         this.playerRooms.set(hostId, roomCode);
         // 持久化到数据库
         try {
-            const dbRoom = await RoomService_1.roomService.createRoom(hostId, roomType);
+            const dbRoom = await RoomService_1.roomService.createRoom(hostId, roomType, gameType);
             if (dbRoom) {
                 console.log(`[GameRoomManager] Room ${roomCode} saved to database, id=${dbRoom.id}`);
             }

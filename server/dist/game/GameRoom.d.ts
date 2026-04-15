@@ -41,6 +41,7 @@ export declare class GameRoom extends EventEmitter {
     readonly roomCode: string;
     readonly roomId: number;
     readonly roomType: number;
+    readonly gameType: number;
     private players;
     private status;
     private landlordId;
@@ -59,7 +60,7 @@ export declare class GameRoom extends EventEmitter {
     private turnNotified;
     private firstMoveDone;
     private finishedFarmerCount;
-    constructor(roomCode: string, roomId: number, roomType?: number);
+    constructor(roomCode: string, roomId: number, roomType?: number, gameType?: number);
     /** 设置快速匹配模式 */
     setQuickMatchMode(enabled: boolean): void;
     /** 添加玩家到房间 */

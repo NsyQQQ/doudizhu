@@ -2,11 +2,11 @@
  * 主菜单控制器
  */
 
-import { _decorator, Component, Button, Label, Color, Sprite, SpriteFrame, game } from 'cc';
+import { _decorator, Component, Button, Label, Color, Sprite, SpriteFrame, Node, Prefab, instantiate } from 'cc';
 import { director, resources } from 'cc';
-import { setCurrentRoomType, setCurrentUserId, setCurrentUserName, CURRENT_USER_ID, CURRENT_USER_NAME, CURRENT_USER_AVATAR } from '../shared/Constants';
-import { WebSocketManager } from '../shared/WebSocketManager';
-import { AudioManager } from '../shared/AudioManager';
+import { setCurrentGameType, setCurrentRoomType, setCurrentUserId, setCurrentUserName, setCurrentRoomCode, CURRENT_USER_ID, CURRENT_USER_NAME, CURRENT_USER_AVATAR } from '../shared/Constants';
+import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
+import { RoomListItemCtrl } from './RoomListItemCtrl';
 
 const { ccclass, property } = _decorator;
 
@@ -42,34 +42,105 @@ export class MainMenuCtrl extends Component {
     @property(Sprite)
     avatarSprite: Sprite = null!;
 
+    @property(Button)
+    roomListButton: Button = null!;
+
+    @property(Node)
+    roomListArea: Node = null!;
+
+    @property(Prefab)
+    roomListItemPrefab: Prefab = null!;
+
+    @property(Node)
+    roomListContent: Node = null!;
+
     private isLoading: boolean = false;
     private wsManager: WebSocketManager = WebSocketManager.getInstance();
+    private roomListVisible: boolean = false;
+    private onRoomListHandler: (data: any) => void = () => { };
 
     start() {
         this.initUser();
         this.setupButtons();
         this.updateConnectionStatus();
         this.setAvatar();
-        this.disableButtons();
+        this.setupRoomList();
     }
 
-    /** 禁用指定按钮（置灰并不可点击） */
-    private disableButton(button: Button): void {
-        if (!button) return;
-        button.interactable = false;
-        // Button 通常使用子节点显示，需要遍历子节点找 Sprite
-        const sprites = button.node.getComponentsInChildren(Sprite);
-        for (const sprite of sprites) {
-            sprite.grayscale = true;
+    /** 设置房间列表 */
+    private setupRoomList(): void {
+        // 隐藏房间列表区域
+        if (this.roomListArea) {
+            this.roomListArea.active = false;
+        }
+
+        // 房间列表按钮
+        if (this.roomListButton) {
+            this.roomListButton.node.on('click', this.onRoomListButtonClicked, this);
+        }
+
+        // 监听房间列表响应
+        this.onRoomListHandler = (data: any) => {
+            if (data.success) {
+                this.updateRoomList(data.rooms || []);
+            } else {
+                this.clearRoomList();
+            }
+        };
+        this.wsManager.on(WsMessageType.ROOM_LIST, this.onRoomListHandler);
+    }
+
+    /** 房间列表按钮点击 */
+    private onRoomListButtonClicked(): void {
+        this.roomListVisible = !this.roomListVisible;
+
+        if (this.roomListArea) {
+            this.roomListArea.active = this.roomListVisible;
+        }
+
+        if (this.roomListVisible) {
+            // 请求房间列表
+            this.wsManager.getRoomList();
         }
     }
 
-    /** 禁用 btn2 btn3 btn4 btn6 */
-    private disableButtons(): void {
-        this.disableButton(this.button2);
-        this.disableButton(this.button3);
-        this.disableButton(this.button4);
-        this.disableButton(this.button6);
+    /** 更新房间列表 */
+    private updateRoomList(rooms: any[]): void {
+        if (!this.roomListContent) return;
+
+        // 清除现有列表
+        this.roomListContent.removeAllChildren();
+
+        // 创建房间列表项
+        for (const room of rooms) {
+            const item = instantiate(this.roomListItemPrefab);
+            item.setParent(this.roomListContent);
+
+            const ctrl = item.getComponent(RoomListItemCtrl);
+            if (ctrl) {
+                ctrl.setRoomData(room);
+                ctrl.setOnJoinCallback((roomCode: string) => {
+                    this.onJoinRoomFromList(roomCode);
+                });
+            }
+        }
+    }
+
+    /** 清空房间列表 */
+    private clearRoomList(): void {
+        if (this.roomListContent) {
+            this.roomListContent.removeAllChildren();
+        }
+    }
+
+    /** 从房间列表加入房间 */
+    private onJoinRoomFromList(roomCode: string): void {
+        if (this.isLoading) return;
+        this.isLoading = true;
+
+        setCurrentRoomCode(roomCode);
+        // 根据房间号跳转到 Lobby 场景，由 Lobby 处理加入房间逻辑
+        director.loadScene('Lobby');
     }
 
     /** 更新连接状态显示 */
@@ -155,11 +226,11 @@ export class MainMenuCtrl extends Component {
         }
     }
 
-    private onLobbyClicked(roomType: number): void {
+    private onLobbyClicked(gameType: number): void {
         if (this.isLoading) return;
         this.isLoading = true;
 
-        setCurrentRoomType(roomType);
+        setCurrentGameType(gameType);
         director.loadScene('Lobby');
     }
 
@@ -184,10 +255,18 @@ export class MainMenuCtrl extends Component {
             this.button6.node.off(Button.EventType.CLICK, () => this.onLobbyClicked(6), this);
         }
 
+        // 清理房间列表按钮事件
+        if (this.roomListButton?.node) {
+            this.roomListButton.node.off('click', this.onRoomListButtonClicked, this);
+        }
+
         // 清理 WebSocket 状态监听
         this.wsManager.off('stateChange', this.updateStatusLabel);
         this.wsManager.off('connect', this.updateStatusLabel);
         this.wsManager.off('disconnect', this.updateStatusLabel);
         this.wsManager.off('reconnectFailed', this.updateStatusLabel);
+
+        // 清理房间列表监听
+        this.wsManager.off(WsMessageType.ROOM_LIST, this.onRoomListHandler);
     }
 }

@@ -8,7 +8,7 @@ class RoomService {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
     /** 创建房间 */
-    async createRoom(hostId, type = 1) {
+    async createRoom(hostId, type = 1, gameType = 1) {
         const connection = await database_1.pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -23,13 +23,14 @@ class RoomService {
                 isAI: false,
                 isEmpty: false
             };
-            const [result] = await connection.query('INSERT INTO rooms (room_code, type, status, host_id, players) VALUES (?, ?, ?, ?, ?)', [roomCode, type, 'waiting', hostId, JSON.stringify([initialPlayer])]);
+            const [result] = await connection.query('INSERT INTO rooms (room_code, type, game_type, status, host_id, players) VALUES (?, ?, ?, ?, ?, ?)', [roomCode, type, gameType, 'waiting', hostId, JSON.stringify([initialPlayer])]);
             await connection.commit();
             if (result.affectedRows > 0) {
                 return {
                     id: result.insertId,
                     room_code: roomCode,
                     type,
+                    game_type: gameType,
                     status: 'waiting',
                     host_id: hostId,
                     players: [initialPlayer],
@@ -163,7 +164,7 @@ class RoomService {
             const [rows] = await database_1.pool.query('SELECT * FROM rooms');
             return rows.map(row => ({
                 ...row,
-                players: JSON.parse(row.players)
+                players: typeof row.players === 'string' ? JSON.parse(row.players) : row.players
             }));
         }
         catch (error) {

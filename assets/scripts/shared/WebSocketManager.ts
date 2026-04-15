@@ -18,6 +18,7 @@ export enum WsMessageType {
     ROOM_ADD_AI = 'room/add_ai',
     ROOM_REMOVE_AI = 'room/remove_ai',
     ROOM_QUICK_MATCH = 'room/quick_match',
+    ROOM_LIST = 'room/list',
 
     // 游戏相关
     GAME_START = 'game/start',
@@ -62,7 +63,6 @@ export class WebSocketManager extends EventEmitter {
     private heartbeatInterval: number = 0;
     private heartbeatTimeout: number = 0;
     private manualClose: boolean = false;
-    private msgSeq: number = 0;  // 消息序列号
 
     private _state: WsConnectionState = WsConnectionState.DISCONNECTED;
 
@@ -117,7 +117,6 @@ export class WebSocketManager extends EventEmitter {
     private autoConnect(): void {
         // 服务器地址配置
         const serverUrl = SERVER_CONFIG.WS_URL;
-        console.log('[WebSocket] Auto connecting to:', serverUrl);
         this.connect(serverUrl);
     }
 
@@ -134,7 +133,6 @@ export class WebSocketManager extends EventEmitter {
         this.url = url;
         this.manualClose = false;
         this._state = WsConnectionState.CONNECTING;
-        console.log('[WebSocket] Connecting to:', url);
 
         try {
             this.ws = new WebSocket(url);
@@ -266,7 +264,6 @@ export class WebSocketManager extends EventEmitter {
         } catch (e) {}
 
         // 根据类型触发具体事件
-        console.log(`[收到服务端消息 #${++this.msgSeq}]:[类型]${message.type},[数据]}`,message.data);
         try {
             this.emit(message.type, message.data);
         } catch (e) {}
@@ -325,6 +322,11 @@ export class WebSocketManager extends EventEmitter {
     /** 玩家准备 */
     playerReady(roomId: number, ready: boolean): void {
         this.send(WsMessageType.ROOM_PLAYER_READY, { roomId, ready });
+    }
+
+    /** 获取房间列表 */
+    getRoomList(): void {
+        this.send(WsMessageType.ROOM_LIST);
     }
 
     /** 开始游戏 */

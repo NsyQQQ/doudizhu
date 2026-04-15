@@ -4,19 +4,9 @@
 
 import { _decorator, Component, Button, Label, Node, Prefab, instantiate } from 'cc';
 import { director } from 'cc';
-import { CURRENT_ROOM_TYPE, CURRENT_ROOM_CODE, CURRENT_PLAYER_INDEX, CURRENT_ROOM_PLAYERS, setCurrentRoomPlayers, ROOM_PLAYER_COUNTS } from '../shared/Constants';
+import { CURRENT_ROOM_TYPE, CURRENT_ROOM_CODE, CURRENT_PLAYER_INDEX, CURRENT_ROOM_PLAYERS, CURRENT_GAME_TYPE, setCurrentRoomPlayers, getPlayerCountByRoomType, GAME_MODE_CONFIG } from '../shared/Constants';
 import { WebSocketManager, WsMessageType } from '../shared/WebSocketManager';
 import { PlayerInfoItemCtrl } from './PlayerInfoItemCtrl';
-
-/** 房间名称配置 */
-const ROOM_NAMES: Record<number, string> = {
-    1: '三人斗地主',
-    2: '四人扔炸弹',
-    3: '六人扔炸弹',
-    4: '五人斗地主',
-    5: '六人斗地主',
-    6: '七人斗地主',
-};
 
 const { ccclass, property } = _decorator;
 
@@ -91,7 +81,7 @@ export class RoomCtrl extends Component {
 
         this.onGameStartHandler = (data: any) => {
             if (data.success) {
-                const sceneName = CURRENT_ROOM_TYPE === 5 ? 'GameTable2' : 'GameTable';
+                const sceneName = CURRENT_ROOM_TYPE === 4 ? 'GameTable2' : 'GameTable';
                 director.loadScene(sceneName);
             } else {
 
@@ -125,12 +115,11 @@ export class RoomCtrl extends Component {
     }
 
     private updatePlayers(players: any[]): void {
-        const maxPlayers = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
+        const maxPlayers = getPlayerCountByRoomType(CURRENT_ROOM_TYPE);
         this.playerInfos = []; // 先清空
 
         // 同步更新 CURRENT_ROOM_PLAYERS
         setCurrentRoomPlayers(players);
-        console.log('[RoomCtrl] updatePlayers, players:', JSON.stringify(players));
 
         for (let i = 0; i < maxPlayers; i++) {
             if (players[i]) {
@@ -185,7 +174,18 @@ export class RoomCtrl extends Component {
         }
 
         if (this.roomNameLabel) {
-            this.roomNameLabel.string = ROOM_NAMES[CURRENT_ROOM_TYPE] || '斗地主';
+            const gameModeConfig = GAME_MODE_CONFIG[CURRENT_GAME_TYPE];
+            const roomTypeConfig = gameModeConfig?.roomTypes[CURRENT_ROOM_TYPE];
+            const GAME_TYPE_NAMES: Record<number, string> = {
+                1: '斗地主',
+                2: '扔炸弹',
+                3: '跑得快',
+                4: '斗牛',
+                5: '510K',
+                6: '二百四',
+            };
+            const gameName = GAME_TYPE_NAMES[CURRENT_GAME_TYPE] || '斗地主';
+            this.roomNameLabel.string = roomTypeConfig ? `${gameName} ${roomTypeConfig.name}` : '斗地主';
         }
 
         if (this.roomCodeLabel) {
@@ -243,7 +243,7 @@ export class RoomCtrl extends Component {
     }
 
     private initEmptySlots(): void {
-        const maxPlayers = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
+        const maxPlayers = getPlayerCountByRoomType(CURRENT_ROOM_TYPE);
         this.playerInfos = [];
 
         // 如果有保存的玩家数据，使用保存的数据

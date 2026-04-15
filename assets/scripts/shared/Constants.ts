@@ -16,14 +16,6 @@ export const SERVER_CONFIG = IS_PRODUCTION ? {
 };
 
 // ==================== 游戏配置 ====================
-/** 玩家数量 */
-export const PLAYER_COUNT = 3;
-
-/** 每人初始手牌数 */
-export const CARDS_PER_PLAYER = 17;
-
-/** 地主底牌数 */
-export const LANDLORD_CARDS = 3;
 
 /** 玩家ID */
 export const PLAYER_ID = {
@@ -49,29 +41,8 @@ export const GameState = {
     GAME_OVER: 'game_over',
 } as const;
 
-/** 发牌动画延迟 */
-export const DEAL_CARD_DELAY = 80; // ms
-
 /** AI 出牌思考时间 */
 export const AI_THINK_DELAY = 800; // ms
-
-/** 牌型名称（用于调试） */
-export const PATTERN_NAMES: Record<number, string> = {
-    [-1]: 'PASS',
-    0: 'INVALID',
-    1: 'SINGLE',
-    2: 'PAIR',
-    3: 'TRIPLE',
-    4: 'TRIPLE_SINGLE',
-    5: 'TRIPLE_PAIR',
-    6: 'STRAIGHT',
-    7: 'STRAIGHT_PAIRS',
-    8: 'STRAIGHT_TRIPLES',
-    9: 'BOMB',
-    10: 'ROCKET',
-    11: 'QUADRUPLE_SINGLE',
-    12: 'QUADRUPLE_PAIR',
-};
 
 /** 当前房间类型（1-6，用于大厅创建房间） */
 export let CURRENT_ROOM_TYPE = 0;
@@ -129,34 +100,84 @@ export function setCurrentUserAvatar(avatar: string): void {
     CURRENT_USER_AVATAR = avatar;
 }
 
-/** 房间类型对应玩家数量 */
-export const ROOM_PLAYER_COUNTS: Record<number, number> = {
-    1: 3,
-    2: 4,
-    3: 6,
-    4: 5,
-    5: 6,
-    6: 7,
-};
+/** 当前玩法类型 */
+export let CURRENT_GAME_TYPE = 1;
 
-/** 房间类型对应每人手牌数量 */
-export const ROOM_CARDS_PER_PLAYER: Record<number, number> = {
-    1: 17,
-    2: 13,
-    3: 25,
-    4: 11,
-    5: 27,
-    6: 21,
-};
+/** 设置当前玩法类型 */
+export function setCurrentGameType(type: number): void {
+    CURRENT_GAME_TYPE = type;
+}
 
-/** 房间名称配置 */
-export const ROOM_NAMES: Record<number, string> = {
-    1: '三人斗地主',
-    2: '四人斗地主',
-    3: '六人斗地主',
-    4: '五人斗地主',
-    5: '六人斗地主',
-    6: '七人斗地主',
+/** 从GAME_MODE_CONFIG中获取玩家数量（使用当前玩法类型） */
+export function getPlayerCountByRoomType(roomType: number): number {
+    return GAME_MODE_CONFIG[CURRENT_GAME_TYPE]?.roomTypes[roomType]?.playerCount || 3;
+}
+
+/** 从GAME_MODE_CONFIG中获取每人手牌数量（使用当前玩法类型） */
+export function getCardsPerPlayerByRoomType(roomType: number): number {
+    return GAME_MODE_CONFIG[CURRENT_GAME_TYPE]?.roomTypes[roomType]?.cardsPerPlayer || 17;
+}
+
+/** 从GAME_MODE_CONFIG中获取地主牌数量（使用当前玩法类型） */
+export function getLandlordCardsByRoomType(roomType: number): number {
+    return GAME_MODE_CONFIG[CURRENT_GAME_TYPE]?.roomTypes[roomType]?.landlordCards || 0;
+}
+
+/** 玩法配置（玩法类型 -> 房间类型 -> 房间配置） */
+export const GAME_MODE_CONFIG: Record<number, {
+    roomTypes: Record<number, {
+        isOpen: boolean;        // 是否开启
+        playerCount: number;     // 玩家数量
+        cardsPerPlayer: number;  // 每人手牌数量
+        deckCount: number;      // 扑克牌数量
+        landlordCards: number;  // 地主牌数量（斗地主玩法独有）
+        name: string;           // 房间名称
+    }>
+}> = {
+    1: { // 斗地主
+        roomTypes: {
+            1: { isOpen: true, playerCount: 3, cardsPerPlayer: 17, deckCount: 54, landlordCards: 3, name: '三人场' },
+            2: { isOpen: false, playerCount: 4, cardsPerPlayer: 27, deckCount: 108, landlordCards: 0, name: '四人场' },
+            3: { isOpen: false, playerCount: 5, cardsPerPlayer: 21, deckCount: 108, landlordCards: 3, name: '五人场' },
+            4: { isOpen: true, playerCount: 6, cardsPerPlayer: 27, deckCount: 162, landlordCards: 0, name: '六人场' },
+            5: { isOpen: false, playerCount: 7, cardsPerPlayer: 23, deckCount: 162, landlordCards: 1, name: '七人场' },
+        }
+    },
+    2: { // 扔炸弹
+        roomTypes: {
+            1: { isOpen: false, playerCount: 4, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '四人场' },
+            2: { isOpen: false, playerCount: 6, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '六人场' },
+            3: { isOpen: false, playerCount: 8, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '八人场' },
+        }
+    },
+    3: { // 跑得快
+        roomTypes: {
+            1: { isOpen: false, playerCount: 3, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '三人场' },
+            2: { isOpen: false, playerCount: 4, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '四人场' },
+            3: { isOpen: false, playerCount: 5, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '五人场' },
+        }
+    },
+    4: { // 斗牛
+        roomTypes: {
+            1: { isOpen: false, playerCount: 3, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '三人场' },
+            2: { isOpen: false, playerCount: 4, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '四人场' },
+            3: { isOpen: false, playerCount: 5, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '五人场' },
+            4: { isOpen: false, playerCount: 6, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '六人场' },
+            5: { isOpen: false, playerCount: 7, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '七人场' },
+        }
+    },
+    5: { // 510K
+        roomTypes: {
+            1: { isOpen: false, playerCount: 3, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '三人场' },
+            2: { isOpen: false, playerCount: 4, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '四人场' },
+            3: { isOpen: false, playerCount: 5, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '五人场' },
+        }
+    },
+    6: { // 二百四
+        roomTypes: {
+            2: { isOpen: false, playerCount: 4, cardsPerPlayer: 0, deckCount: 0, landlordCards: 0, name: '四人场' },
+        }
+    },
 };
 
 /** 当前房间玩家列表 */

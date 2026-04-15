@@ -12,12 +12,12 @@ export class GameRoomManager {
     private nextRoomId: number = 1;
 
     /** 创建房间 */
-    async createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>, roomType: number = 1): Promise<GameRoom> {
+    async createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>, roomType: number = 1, gameType: number = 1): Promise<GameRoom> {
         // 生成6位房间号
         const roomCode = Math.floor(100000 + Math.random() * 900000).toString();
         const roomId = this.nextRoomId++;
 
-        const room = new GameRoom(roomCode, roomId, roomType);
+        const room = new GameRoom(roomCode, roomId, roomType, gameType);
         room.addPlayer(hostInfo);
 
         this.rooms.set(roomCode, room);
@@ -25,7 +25,7 @@ export class GameRoomManager {
 
         // 持久化到数据库
         try {
-            const dbRoom = await roomService.createRoom(hostId, roomType);
+            const dbRoom = await roomService.createRoom(hostId, roomType, gameType);
             if (dbRoom) {
                 console.log(`[GameRoomManager] Room ${roomCode} saved to database, id=${dbRoom.id}`);
             }

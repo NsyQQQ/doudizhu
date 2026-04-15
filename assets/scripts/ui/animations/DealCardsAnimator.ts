@@ -2,7 +2,7 @@
  * 发牌动画
  */
 
-import { _decorator, Component, Vec3, tween, Prefab, instantiate } from 'cc';
+import { _decorator, Component, Node, Vec3, tween, Prefab, instantiate } from 'cc';
 import { Card } from '../../core/Card';
 import { CardView } from '../CardView';
 import { CardFlipAnimator } from './CardFlipAnimator';
@@ -21,6 +21,9 @@ export class DealCardsAnimator extends Component {
 
     /** 发完牌后的回调 */
     private onComplete: (() => void) | null = null;
+
+    /** 是否已销毁，防止切换场景后动画继续执行 */
+    private _isDestroyed: boolean = false;
 
     // 6个玩家位置（逆时针：下、左下、左、左上、右上、右）
     private playerPositions6: Vec3[] = [
@@ -57,11 +60,18 @@ export class DealCardsAnimator extends Component {
         const playerCardCounts = new Array(playerCount).fill(0);
 
         const dealOne = () => {
+            if (this._isDestroyed) return;
+
             if (dealIndex >= totalCards) {
                 // 动画结束
                 if (this.onComplete) {
                     this.onComplete();
                 }
+                return;
+            }
+
+            if (!this.cardPrefab) {
+                this._isDestroyed = true;
                 return;
             }
 
@@ -106,5 +116,9 @@ export class DealCardsAnimator extends Component {
             // 使用 CardFlipAnimator 逐张翻转
             flipAnimator.flipCardsSequentially(cardNodes as any, cards);
         }
+    }
+
+    onDestroy(): void {
+        this._isDestroyed = true;
     }
 }

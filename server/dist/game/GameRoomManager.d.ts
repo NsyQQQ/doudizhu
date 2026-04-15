@@ -8,7 +8,7 @@ export declare class GameRoomManager {
     private playerRooms;
     private nextRoomId;
     /** 创建房间 */
-    createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>, roomType?: number): Promise<GameRoom>;
+    createRoom(hostId: number, hostInfo: Omit<GamePlayer, 'hand' | 'isLandlord'>, roomType?: number, gameType?: number): Promise<GameRoom>;
     /** 根据房间号查找房间 */
     findByRoomCode(roomCode: string): GameRoom | undefined;
     /** 根据房间ID查找房间 */

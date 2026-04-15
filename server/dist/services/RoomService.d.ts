@@ -3,7 +3,7 @@ export declare class RoomService {
     /** 生成6位房间号 */
     private generateRoomCode;
     /** 创建房间 */
-    createRoom(hostId: number, type?: number): Promise<Room | null>;
+    createRoom(hostId: number, type?: number, gameType?: number): Promise<Room | null>;
     /** 根据房间号查找房间 */
     findByRoomCode(roomCode: string): Promise<Room | null>;
     /** 根据ID查找房间 */

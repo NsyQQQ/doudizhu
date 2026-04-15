@@ -281,9 +281,6 @@ export class GameRules {
         const moves: Move[] = [];
         const cards = hand.cards;
 
-        console.log('[generateAllValidMoves] hand.cards.length:', cards.length);
-        console.log('[generateAllValidMoves] distinctRanks:', Array.from(hand.getDistinctRanks()).join(','));
-
 
         // 单张
         for (const card of cards) {
@@ -430,7 +427,6 @@ export class GameRules {
             }
         }
 
-        console.log('[generateAllValidMoves] total moves:', moves.length);
         return moves;
     }
 
@@ -449,9 +445,7 @@ export class GameRules {
         const distinctRanks = rankArray.filter(r => r < CardRank.TWO);
         distinctRanks.sort((a, b) => a - b);
 
-        console.log('[generateStraightMoves] distinctRanks:', distinctRanks.join(','), 'pattern:', lastPattern.type, 'allowAny:', allowAnyLength);
         if (distinctRanks.length < 2) {
-            console.log('[generateStraightMoves] early return: distinctRanks.length < 2');
             return;
         }
 
@@ -586,14 +580,12 @@ export class GameRules {
 
                 // 非翅膀情况：直接添加顺子
                 if (!isWingsSingle && !isWingsPair) {
-                    console.log('[generateStraightMoves] pushing straight straightCards.length:', straightCards.length, 'lastCardCount:', lastCardCount, 'allowAny:', allowAnyLength);
                     if (straightCards.length === lastCardCount || allowAnyLength) {
                         moves.push({
                             cards: straightCards,
                             pattern: { type: patternType, primaryValue: maxRank, secondaryValue: straightLength },
                             playerId,
                         });
-                        console.log('[generateStraightMoves] straight added, moves.length now:', moves.length);
                     }
                 }
             }

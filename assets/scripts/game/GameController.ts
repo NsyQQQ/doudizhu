@@ -112,14 +112,10 @@ export class GameController extends Component {
             const sameLandlordCards = this.landlordCards.length === data.landlordCards?.length &&
                 this.landlordCards.every((c, i) => c.id === data.landlordCards[i]?.id);
             if (sameLandlordCards) {
-                console.log('[GameController] handleGameDealt ignored: duplicate landlord cards');
                 return;
             }
             // 地主牌不同，说明是再来一局，需要重置所有状态
-            console.log('[GameController] handleGameDealt: new game detected, resetting state');
         }
-
-        console.log('[GameController] handleGameDealt called, hand:', data.hand?.length);
 
         // 重置所有游戏状态
         this.lastMove = null;
@@ -145,7 +141,6 @@ export class GameController extends Component {
         const hands: Card[][] = [[], [], []];
         hands[PLAYER_ID.HUMAN] = [...myHand];
 
-        console.log('[GameController] emitDealtEvent, myHand length:', myHand.length, 'landlordId:', this.landlordId);
         EventBus.emit(GameEvents.GAME_DEALT, {
             hands,
             landlordCards: this.landlordCards,
@@ -180,7 +175,6 @@ export class GameController extends Component {
             // 始终更新 lastMove 为出牌者的出牌
             // 这样下一个玩家才能知道需要跟什么牌
             this.lastMove = move;
-            console.log(`[handleRemoteAction] 玩家${playerId}出牌, lastMove设为: ${cards.map(c => `${c.id}(rank${c.rank})`).join(',')}`);
             // 注意：CARDS_PLAYED 由 GameTableCtrl.onWsCardsPlayed 统一处理，避免重复
         }
     }

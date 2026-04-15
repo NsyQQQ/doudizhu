@@ -73,6 +73,7 @@ export class GameTableCtrl extends Component {
     private landlordCards: Card[] = [];  // 保存地主牌
     private playerHand: Card[] = [];  // 保存玩家手牌
     private playerCardCounts: number[] = [];  // 所有玩家手牌数
+    private isLoading: boolean = false;  // 防止重复加载场景
 
     // 存储绑定函数
     private boundOnGameStarted: () => void = null!;
@@ -211,9 +212,6 @@ export class GameTableCtrl extends Component {
             resolvedLandlordId = landlordPlayer ? players.indexOf(landlordPlayer) : -1;
         }
         const myIndex = CURRENT_PLAYER_INDEX;
-        console.log(`[initPlayerInfo] myIndex=${myIndex}, players count=${players.length}, landlordId=${resolvedLandlordId}`);
-        console.log(`[initPlayerInfo] CURRENT_ROOM_PLAYERS:`, JSON.stringify(CURRENT_ROOM_PLAYERS));
-        console.log(`[initPlayerInfo] players:`, players.map(p => ({ id: p?.id, playerIndex: p?.playerIndex, nickname: p?.nickname, isAI: p?.isAI })));
 
         // 根据我的位置确定左右两边对应的玩家索引
         // 我的位置在下方(0)，左边是1，右边是2
@@ -241,7 +239,6 @@ export class GameTableCtrl extends Component {
             const myCardCount = isMyLandlord ? 20 : 17;
             const myPlayer = { id: myIndex, name: myName, avatar: myAvatar, hand: { count: myCardCount } as any, isLandlord: isMyLandlord, isHuman: true };
             this.BottomPlayerInfo.setPlayer(myPlayer as any);
-            console.log(`[initPlayerInfo] Bottom: myIndex=${myIndex}, name=${myName}, avatar=${myAvatar}, cardCount=${myCardCount}`);
         }
 
         const positions = [
@@ -253,11 +250,9 @@ export class GameTableCtrl extends Component {
             if (playerInfo) {
                 const isLandlord = playerIndex === resolvedLandlordId;
                 const cardCount = isLandlord ? 20 : 17;
-                console.log(`[initPlayerInfo] playerIndex=${playerIndex}, landlordId=${resolvedLandlordId}, cardCount=${cardCount}`);
                 // 玩家通过数组索引存储，直接用 playerIndex 访问
                 const playerData = players[playerIndex];
                 const name = playerData?.nickname || playerData?.name || (playerData?.isAI ? `AI${playerIndex}` : `玩家${playerIndex.toString().padStart(3, '0')}`);
-                console.log(`[initPlayerInfo] playerData:`, playerData, 'name:', name);
                 const fakePlayer = { id: playerIndex, name, avatar: playerData?.avatar || '', hand: { count: cardCount } as any, isLandlord, isHuman: !playerData?.isAI };
                 playerInfo.setPlayer(fakePlayer as any);
             }
@@ -328,7 +323,6 @@ export class GameTableCtrl extends Component {
 
     /** WebSocket 消息：回合变化 */
     private onWsTurnChanged(data: { playerId: number }): void {
-        console.log(`[回合变化] ${this.getPlayerName(data.playerId)}的回合`);
         this.unscheduleAllCallbacks(); // 取消任何待执行的延迟清空
         this.onTurnChanged(data);
     }
@@ -336,16 +330,11 @@ export class GameTableCtrl extends Component {
     /** WebSocket 消息：出牌 */
     private async onWsCardsPlayed(data: { playerId: number; cards: Card[]; actionType: string }): Promise<void> {
         if (data.actionType === 'pass') {
-            console.log(`[出牌] ${this.getPlayerName(data.playerId)}不出`);
             // 跳过只通过EventBus通知
             EventBus.emit(GameEvents.PLAYER_PASSED, { playerId: data.playerId });
             // 刷新按钮状态（更新lastMove等）
             this.actionButtons?.updateButtonState();
         } else {
-            // 获取玩家名字
-            const playerData = CURRENT_ROOM_PLAYERS[data.playerId];
-            const playerName = playerData?.nickname || playerData?.name || `玩家${data.playerId}`;
-            console.log(`[出牌] ${playerName}出牌: ${(data.cards || []).map((c: Card) => c.id).join(',')} (${(data.cards || []).length}张)`);
             // 取消任何待执行的延迟清空
             this.unscheduleAllCallbacks();
             // 立即清空出牌区域，显示新出的牌
@@ -370,7 +359,6 @@ export class GameTableCtrl extends Component {
                 await this.onCardsPlayed({ playerId: data.playerId, cards: data.cards || [] });
                 // 更新 ActionButtons 的手牌数据
                 if (this.handView && this.actionButtons) {
-                    console.log(`[同步手牌] handView.hand: ${this.handView.hand?.cards.map(c => c.id).join(',')} (${this.handView.hand?.cards.length}张)`);
                     this.actionButtons.setHand(this.handView.hand);
                 }
             }
@@ -379,25 +367,21 @@ export class GameTableCtrl extends Component {
 
     /** WebSocket 消息：跳过 */
     private onWsPlayerPassed(data: { playerId: number }): void {
-        console.log(`[跳过] ${this.getPlayerName(data.playerId)}`);
         this.onPlayerPassed(data);
     }
 
     /** WebSocket 消息：回合结束 */
     private onWsRoundCleared(): void {
-        console.log(`[回合结束]`);
         this.onRoundCleared();
     }
 
     /** WebSocket 消息：游戏结束 */
     private onWsGameOver(data: { winnerId: number; isLandlordWin: boolean }): void {
-        console.log(`[游戏结束] ${this.getPlayerName(data.winnerId)}胜利, isLandlordWin: ${data.isLandlordWin}`);
         this.onGameOver(data);
     }
 
     /** WebSocket 消息：快速匹配（再来一局） */
     private onWsQuickMatch(data: any): void {
-        console.log(`[快速匹配] success: ${data.success}, hasDealt: ${!!data.dealt}`);
         if (data.success) {
             // 重置UI状态
             if (this.gameOverNode) {
@@ -425,7 +409,6 @@ export class GameTableCtrl extends Component {
 
             // 如果服务器直接发送了 dealt 数据，立即处理
             if (data.dealt) {
-                console.log(`[快速匹配] 处理内嵌的dealt数据`);
                 this.onGameDealt({
                     hands: [data.dealt.hand, [], []],
                     landlordCards: data.dealt.landlordCards,
@@ -437,9 +420,9 @@ export class GameTableCtrl extends Component {
 
     /** WebSocket 消息：玩家离开（房主退出时通知其他玩家） */
     private onWsPlayerLeave(data: { playerIndex: number }): void {
-        console.log(`[玩家离开] playerIndex=${data.playerIndex}`);
         // 如果是房主离开，非房主玩家返回大厅
-        if (data.playerIndex === 0) {
+        if (data.playerIndex === 0 && !this.isLoading) {
+            this.isLoading = true;
             director.loadScene('Lobby');
         }
     }
@@ -451,20 +434,16 @@ export class GameTableCtrl extends Component {
     }
 
     private onGameStarted(): void {
-        console.log(`[游戏开始]`);
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '发牌中...';
         }
     }
 
     private onGameDealt(data: { hands: Card[][]; landlordCards: Card[]; landlordId: number }): void {
-        console.log('[onGameDealt] called, handView:', !!this.handView, 'hands[0]:', data.hands[0]?.length, 'landlordCards:', data.landlordCards?.length);
         if (!this.handView) {
-            console.log('[onGameDealt] early return: handView is null');
             return;
         }
         if (!data.hands[0]) {
-            console.log('[onGameDealt] early return: hands[0] is empty');
             return;
         }
 
@@ -473,11 +452,9 @@ export class GameTableCtrl extends Component {
             // 如果地主ID相同，说明是重复调用，忽略
             if (this.landlordCards.length === data.landlordCards.length &&
                 this.landlordCards.every((c, i) => c.id === data.landlordCards[i]?.id)) {
-                console.log('[onGameDealt] ignored: duplicate landlord cards');
                 return;
             }
             // 地主牌不同，说明是新游戏，重置状态
-            console.log('[onGameDealt] new game detected, resetting state');
             this.landlordCards = [];
             this.playerHand = [];
             this.playerCardCounts = [];
@@ -490,12 +467,9 @@ export class GameTableCtrl extends Component {
         // 如果手牌数量超过20（地主应该是17+3=20），截断多余部分
         const maxHandSize = 20;
         if (playerHand.length > maxHandSize) {
-            console.log(`[发牌] 手牌数量${playerHand.length}超过${maxHandSize}，截断处理`);
             playerHand = playerHand.slice(0, maxHandSize);
         }
         this.playerHand = playerHand;
-
-        console.log(`[发牌] 地主: ${data.landlordId}, 手牌: ${this.playerHand.map((c: Card) => c.id).join(',')} (${this.playerHand.length}张)`);
 
         // 清空手牌准备发牌动画
         this.handView.setHand(new Hand([]));
@@ -623,7 +597,6 @@ export class GameTableCtrl extends Component {
 
         // 调试：确保地主牌数据存在
         if (!this.landlordCards || this.landlordCards.length === 0) {
-            console.warn('[GameTable] landlordCards 为空，尝试从 gameController 获取');
             this.landlordCards = this.gameController?.getLandlordCards() || [];
         }
 
@@ -646,7 +619,6 @@ export class GameTableCtrl extends Component {
     }
 
     private onLandlordSelected(data: { playerId: number }): void {
-        console.log(`[地主] ${this.getPlayerName(data.playerId)}`);
         const playerNames = this.getPlayerNames();
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = `${playerNames[data.playerId]}是地主！`;
@@ -668,12 +640,6 @@ export class GameTableCtrl extends Component {
     }
 
     private onTurnChanged(data: { playerId: number }): void {
-        console.log(`[回合变化] 本地处理: ${this.getPlayerName(data.playerId)}`);
-        const gameControllerLastMove = this.gameController?.getLastMove();
-        const lastMoveInfo = gameControllerLastMove
-            ? `lastMove: ${gameControllerLastMove.cards.map(c => `${c.id}(rank${c.rank})`).join(',')} type: ${gameControllerLastMove.pattern.type}`
-            : 'lastMove: null';
-        console.log(`[onTurnChanged] handView.hand: ${this.handView?.hand?.cards.map(c => `${c.id}(rank${c.rank})`).join(',') || 'null'}, ${lastMoveInfo}`);
         const playerNames = this.getPlayerNames();
 
         if (this.gameStatusLabel) {
@@ -699,7 +665,6 @@ export class GameTableCtrl extends Component {
     }
 
     private async onCardsPlayed(data: { playerId: number; cards: Card[]; pattern?: any }): Promise<void> {
-        console.log(`[出牌动画] ${this.getPlayerName(data.playerId)}出牌动画`);
         // 播放出牌音效
         AudioManager.getInstance().playCardSFX(data.pattern?.type, data.cards);
 
@@ -724,7 +689,6 @@ export class GameTableCtrl extends Component {
     private _lastPassSFXTime: number = 0;
 
     private onPlayerPassed(data: { playerId: number }): void {
-        console.log(`[跳过] 本地处理: ${this.getPlayerName(data.playerId)}`);
         const playerNames = this.getPlayerNames();
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = `${playerNames[data.playerId]}不出`;
@@ -739,7 +703,6 @@ export class GameTableCtrl extends Component {
     }
 
     private onRoundCleared(): void {
-        console.log(`[回合结束]`);
         if (this.gameStatusLabel) {
             this.gameStatusLabel.string = '新一轮';
         }
@@ -755,7 +718,6 @@ export class GameTableCtrl extends Component {
 
     /** 处理出牌请求 */
     private onPlayRequested(cards: Card[]): void {
-        console.log(`[发送] 出牌: ${cards.map(c => c.id).join(',')} (${cards.length}张)`);
         // 检查是否轮到自己出牌
         const currentPlayerId = this.gameController?.getCurrentPlayerId();
         if (currentPlayerId !== CURRENT_PLAYER_INDEX) {
@@ -769,7 +731,6 @@ export class GameTableCtrl extends Component {
     }
 
     private onPassRequested(): void {
-        console.log(`[发送] 跳过`);
         const wsManager = WebSocketManager.getInstance();
         wsManager.send(WsMessageType.GAME_PASS);
     }
@@ -834,6 +795,8 @@ export class GameTableCtrl extends Component {
 
     /** 退出游戏 */
     private onExitClicked(): void {
+        if (this.isLoading) return;
+        this.isLoading = true;
         const wsManager = WebSocketManager.getInstance();
         wsManager.send(WsMessageType.ROOM_LEAVE);
         director.loadScene('Lobby');
@@ -841,6 +804,8 @@ export class GameTableCtrl extends Component {
 
     /** 返回房间（解散房间） */
     private onBackClicked(): void {
+        if (this.isLoading) return;
+        this.isLoading = true;
         const wsManager = WebSocketManager.getInstance();
         wsManager.send(WsMessageType.ROOM_LEAVE);
         director.loadScene('Lobby');

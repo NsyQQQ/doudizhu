@@ -8,73 +8,45 @@ exports.getPlayerCountByRoomType = getPlayerCountByRoomType;
 exports.getDeckCountByRoomType = getDeckCountByRoomType;
 exports.getCardsPerPlayerByRoomType = getCardsPerPlayerByRoomType;
 exports.getLandlordCardsByRoomType = getLandlordCardsByRoomType;
+const types_1 = require("./types");
 const Deck_1 = require("./Deck");
 const GameRules_1 = require("./GameRules");
 const GameRules2_1 = require("./GameRules2");
 const events_1 = require("events");
-const PLAYER_COUNT = 3;
-/** 房间类型对应玩家数量 */
-const ROOM_PLAYER_COUNTS = {
-    1: 3,
-    2: 4,
-    3: 6,
-    4: 5,
-    5: 6,
-    6: 7,
-};
-/** 房间类型对应牌组数量（1=单副牌, 3=三副牌） */
-const ROOM_DECK_COUNTS = {
-    1: 1, // 三人斗地主：1副牌
-    2: 1, // 四人斗地主：1副牌
-    3: 3, // 六人斗地主：3副牌
-    4: 1, // 五人斗地主：1副牌
-    5: 3, // 六人斗地主：3副牌
-    6: 1, // 七人斗地主：1副牌
-};
-/** 房间类型对应每人手牌数量 */
-const ROOM_CARDS_PER_PLAYER = {
-    1: 17, // 三人斗地主：17张
-    2: 13, // 四人斗地主：13张
-    3: 25, // 六人斗地主：25张（3副牌162张，6人，剩余12张底牌）
-    4: 11, // 五人斗地主：11张
-    5: 27, // 六人斗地主：27张（3副牌162张，6人平分，无底牌）
-    6: 21, // 七人斗地主：21张（留3张底牌，每人不同）
-};
-/** 房间类型对应底牌数量 */
-const ROOM_LANDLORD_CARDS = {
-    1: 3, // 三人斗地主：3张底牌
-    2: 4, // 四人斗地主：4张底牌
-    3: 12, // 六人斗地主：12张底牌
-    4: 3, // 五人斗地主：3张底牌
-    5: 0, // 六人斗地主：0张底牌（3副牌162张，6人平分）
-    6: 3, // 七人斗地主：3张底牌
+/** 房间类型配置 */
+const ROOM_CONFIG = {
+    1: { playerCount: 3, deckCount: 1, cardsPerPlayer: 17, landlordCards: 3 }, // 三人斗地主
+    2: { playerCount: 4, deckCount: 2, cardsPerPlayer: 27, landlordCards: 0 }, // 四人斗地主
+    3: { playerCount: 5, deckCount: 2, cardsPerPlayer: 21, landlordCards: 3 }, // 五人斗地主
+    4: { playerCount: 6, deckCount: 3, cardsPerPlayer: 27, landlordCards: 0 }, // 六人斗地主
+    5: { playerCount: 7, deckCount: 3, cardsPerPlayer: 23, landlordCards: 1 }, // 七人斗地主
 };
 /** 获取房间类型对应的玩家数量 */
 function getPlayerCountByRoomType(roomType) {
-    return ROOM_PLAYER_COUNTS[roomType] || 3;
+    return ROOM_CONFIG[roomType]?.playerCount || 3;
 }
 /** 获取房间类型对应的牌组数量 */
 function getDeckCountByRoomType(roomType) {
-    return ROOM_DECK_COUNTS[roomType] || 1;
+    return ROOM_CONFIG[roomType]?.deckCount || 1;
 }
 /** 获取房间类型对应的每人手牌数量 */
 function getCardsPerPlayerByRoomType(roomType) {
-    return ROOM_CARDS_PER_PLAYER[roomType] || 17;
+    return ROOM_CONFIG[roomType]?.cardsPerPlayer || 17;
 }
 /** 获取房间类型对应的底牌数量 */
 function getLandlordCardsByRoomType(roomType) {
-    return ROOM_LANDLORD_CARDS[roomType] || 3;
+    return ROOM_CONFIG[roomType]?.landlordCards || 3;
 }
 /** 是否为6人场（需要暗地主选择） */
 function isSixPlayerMode(roomType) {
-    return roomType === 3 || roomType === 5;
+    return roomType === 4;
 }
 /** AI 玩家名字列表 */
 const AI_NAMES = ['小智', '小红', '小刚', '小明', '小华', '小杰', '小丽', '小强', '小芳', '小军', '小雨', '小燕', '小涛', '小梅', '小兵', '小燕'];
 /** AI 玩家头像 */
 const AI_AVATAR = 'test';
 class GameRoom extends events_1.EventEmitter {
-    constructor(roomCode, roomId, roomType = 1) {
+    constructor(roomCode, roomId, roomType = 1, gameType = 1) {
         super();
         this.players = [null, null, null];
         this.status = 'waiting';
@@ -98,6 +70,7 @@ class GameRoom extends events_1.EventEmitter {
         this.roomCode = roomCode;
         this.roomId = roomId;
         this.roomType = roomType;
+        this.gameType = gameType;
         // 根据房间类型初始化玩家数组
         const playerCount = getPlayerCountByRoomType(roomType);
         this.players = new Array(playerCount).fill(null);
@@ -305,20 +278,20 @@ class GameRoom extends events_1.EventEmitter {
             let role = i === this.landlordId ? '明地主' : '农民';
             console.log(`[DEALT] Player${i}(${role}) hand: ${cardIds.join(',')} (${this.hands[i].cards.length}张)`);
         }
-        // 6人场：进入选择地主牌阶段，等待明地主的操作
+        // 6人场：先发送发牌数据，让客户端播放发牌动画
+        // 动画完成后客户端发送 game/ready，然后进入选择地主牌阶段
         if (isSixPlayerMode(this.roomType)) {
-            console.log(`[dealCards] 6人场，进入选择地主牌阶段， landlordId=${this.landlordId}`);
-            this.status = 'selecting_landlord_cards';
-            this.currentPlayerId = this.landlordId;
-            this.roundStartPlayerId = this.landlordId;
-            // 通知客户端明地主正在选择地主牌（不发 game_dealt，因为暗地主还没确定）
-            console.log(`[TURN] 明地主正在选择地主牌, landlordId=${this.currentPlayerId}`);
-            this.emit('turn_changed', this.currentPlayerId);
-            // 如果明地主是AI，服务器自动选择
-            if (this.players[this.landlordId]?.isAI) {
-                this.scheduleAIMove();
-            }
-            return;
+            console.log(`[dealCards] 6人场，发送 game_dealt 让客户端播放发牌动画`);
+            // 发送发牌数据（只发送明牌，暗地主牌等选择完再更新）
+            this.emit('game_dealt', {
+                hands: this.hands.map(h => h.cards),
+                landlordCards: this.landlordCards,
+                landlordId: this.landlordId,
+                hiddenLandlordIds: this.hiddenLandlordIds
+            });
+            // 等待客户端发牌动画完成
+            this.waitingForClientReady = true;
+            return; // 客户端动画完成后发送 game/ready，触发 clientReady() 再进入选择地主牌阶段
         }
         // 快速匹配模式下：发送数据后等待客户端动画完成
         // 客户端播放完发牌动画后发送 game/ready，服务器再开始回合
@@ -452,7 +425,7 @@ class GameRoom extends events_1.EventEmitter {
         }
         // 识别牌型
         let pattern;
-        if (this.roomType === 3 || this.roomType === 5) {
+        if (this.roomType === 4) {
             // 6人场使用GameRules2
             pattern = GameRules2_1.GameRules2.recognizePattern(cards);
         }
@@ -467,7 +440,7 @@ class GameRoom extends events_1.EventEmitter {
         };
         // 验证是否能压过上一手
         if (this.lastMove && this.lastMove.playerId !== playerIndex) {
-            const canBeat = (this.roomType === 3 || this.roomType === 5)
+            const canBeat = (this.roomType === 4)
                 ? GameRules2_1.GameRules2.canBeat(move, this.lastMove)
                 : GameRules_1.GameRules.canBeat(move, this.lastMove);
             if (!canBeat) {
@@ -497,7 +470,7 @@ class GameRoom extends events_1.EventEmitter {
         console.log(`[GAME_OVER CHECK] Player${playerIndex} hand empty: ${this.hands[playerIndex].isEmpty}, remaining: ${this.hands[playerIndex].cards.length}`);
         if (this.hands[playerIndex].isEmpty) {
             // 6人斗地主胜负判定
-            if (this.roomType === 5) {
+            if (this.roomType === 4) {
                 // 明地主出完 -> 地主方赢
                 if (playerIndex === this.landlordId) {
                     console.log(`[GAME_OVER] 明地主${playerIndex}出完，地主方获胜!`);
@@ -748,7 +721,7 @@ class GameRoom extends events_1.EventEmitter {
             console.log(`[首轮完成] firstMoveDone设为true`);
         }
         const hand = this.hands[this.currentPlayerId];
-        const validMoves = (this.roomType === 3 || this.roomType === 5)
+        const validMoves = (this.roomType === 4)
             ? GameRules2_1.GameRules2.generateValidMoves(hand, this.lastMove, this.currentPlayerId)
             : GameRules_1.GameRules.generateValidMoves(hand, this.lastMove, this.currentPlayerId);
         if (validMoves.length === 0) {
@@ -765,23 +738,50 @@ class GameRoom extends events_1.EventEmitter {
             }
         }
         else {
-            // 选择一个合法的出牌（选最小的能压过的牌）
-            // 按 primaryValue 排序（从小到大）
-            const sortedMoves = [...validMoves].sort((a, b) => {
-                // 首先按牌型长度排序（少的优先）
-                if (a.cards.length !== b.cards.length) {
-                    return a.cards.length - b.cards.length;
+            // AI 出牌逻辑：从单张、对子、三带一种随机选一种牌型，然后出最小的
+            const singleMoves = validMoves.filter(m => m.pattern.type === types_1.CardPatternType.SINGLE);
+            const pairMoves = validMoves.filter(m => m.pattern.type === types_1.CardPatternType.PAIR);
+            const tripleSingleMoves = validMoves.filter(m => m.pattern.type === types_1.CardPatternType.TRIPLE_SINGLE);
+            // 收集非空的牌型
+            const availablePatterns = [];
+            if (singleMoves.length > 0)
+                availablePatterns.push({ type: 'SINGLE', moves: singleMoves });
+            if (pairMoves.length > 0)
+                availablePatterns.push({ type: 'PAIR', moves: pairMoves });
+            if (tripleSingleMoves.length > 0)
+                availablePatterns.push({ type: 'TRIPLE_SINGLE', moves: tripleSingleMoves });
+            if (availablePatterns.length > 0) {
+                // 随机选择一种牌型
+                const selected = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
+                // 按 primaryValue 排序，选最小的
+                const sortedMoves = selected.moves.sort((a, b) => a.pattern.primaryValue - b.pattern.primaryValue);
+                const move = sortedMoves[0];
+                const cardIds = move.cards.map(c => c.id);
+                console.log(`[AI出牌] 随机选择${selected.type}，出${cardIds.join(',')}`);
+                try {
+                    this.playCards(this.players[this.currentPlayerId].id, cardIds);
                 }
-                // 然后按 primaryValue 排序
-                return a.pattern.primaryValue - b.pattern.primaryValue;
-            });
-            const move = sortedMoves[0];
-            const cardIds = move.cards.map(c => c.id);
-            try {
-                this.playCards(this.players[this.currentPlayerId].id, cardIds);
+                catch (e) {
+                    // silently ignore play exception
+                }
             }
-            catch (e) {
-                // silently ignore play exception
+            else {
+                // 没有单张/对子/三带一，回退到原来的逻辑（出最小的合法牌）
+                const sortedMoves = [...validMoves].sort((a, b) => {
+                    if (a.cards.length !== b.cards.length) {
+                        return a.cards.length - b.cards.length;
+                    }
+                    return a.pattern.primaryValue - b.pattern.primaryValue;
+                });
+                const move = sortedMoves[0];
+                const cardIds = move.cards.map(c => c.id);
+                console.log(`[AI出牌] 回退：出${cardIds.join(',')}`);
+                try {
+                    this.playCards(this.players[this.currentPlayerId].id, cardIds);
+                }
+                catch (e) {
+                    // silently ignore play exception
+                }
             }
         }
     }
@@ -828,7 +828,7 @@ class GameRoom extends events_1.EventEmitter {
     }
     /** 客户端动画播放完成，等待开始出牌 */
     clientReady() {
-        console.log(`[clientReady] called, waitingForClientReady=${this.waitingForClientReady}, currentPlayerId=${this.currentPlayerId}, landlordId=${this.landlordId}, status=${this.status}, quickMatchMode=${this.quickMatchMode}, turnNotified=${this.turnNotified}`);
+        console.log(`[clientReady] called, waitingForClientReady=${this.waitingForClientReady}, currentPlayerId=${this.currentPlayerId}, landlordId=${this.landlordId}, status=${this.status}, quickMatchMode=${this.quickMatchMode}, turnNotified=${this.turnNotified}, isSixPlayer=${isSixPlayerMode(this.roomType)}`);
         if (!this.waitingForClientReady) {
             console.log(`[clientReady] early return: waitingForClientReady is false`);
             return;
@@ -838,9 +838,22 @@ class GameRoom extends events_1.EventEmitter {
             return;
         }
         this.waitingForClientReady = false;
-        this.status = 'playing';
         this.turnNotified = true;
-        console.log(`[TURN] Player${this.currentPlayerId}'s turn (client ready)`);
+        // 6人场：发牌动画完成后进入选择地主牌阶段
+        if (isSixPlayerMode(this.roomType)) {
+            this.status = 'selecting_landlord_cards';
+            this.currentPlayerId = this.landlordId;
+            this.roundStartPlayerId = this.landlordId;
+            console.log(`[clientReady] 6人场: 明地主正在选择地主牌, landlordId=${this.currentPlayerId}`);
+            this.emit('turn_changed', this.currentPlayerId);
+            // 如果明地主是AI，服务器自动选择
+            if (this.players[this.landlordId]?.isAI) {
+                this.scheduleAIMove();
+            }
+            return;
+        }
+        this.status = 'playing';
+        console.log(`[clientReady] 3人场: Player${this.currentPlayerId}'s turn`);
         this.emit('turn_changed', this.currentPlayerId);
         this.scheduleAIMove();
     }

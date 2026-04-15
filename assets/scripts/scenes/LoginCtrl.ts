@@ -56,7 +56,6 @@ export class LoginCtrl extends Component {
     }
 
     private async onLoginClicked(): Promise<void> {
-        console.log('[Login] Button clicked, isLoading:', this.isLoading);
         if (this.isLoading) return;
 
         // 获取输入框文本
@@ -64,7 +63,6 @@ export class LoginCtrl extends Component {
         if (this.accountEditBox) {
             // Cocos Creator 3.x 中 EditBox 的文本通过 string 属性获取
             account = (this.accountEditBox as any).string?.trim() || '';
-            console.log('[Login] Account input:', account);
         }
 
         if (!account) {
@@ -80,9 +78,7 @@ export class LoginCtrl extends Component {
 
         try {
             // 先检查账号是否存在
-            console.log('[Login] Checking if account exists:', account);
             const checkResponse = await checkUserExists(account);
-            console.log('[Login] Check response:', checkResponse);
 
             if (!checkResponse.exists) {
                 this.showStatus('账号不存在');
@@ -90,15 +86,12 @@ export class LoginCtrl extends Component {
             }
 
             // 账号存在，执行登录
-            console.log('[Login] Account exists, logging in...');
             const response = await loginByOpenid(account);
-            console.log('[Login] Login response:', response);
 
             if (response.success && response.data) {
                 setCurrentUserId(response.data.id);
                 setCurrentUserName(response.data.nickname || `玩家${account}`);
                 setCurrentUserAvatar(response.data.avatar || '');
-                console.log('[Login] Success, user id:', response.data.id);
                 director.loadScene('MainMenu');
             } else {
                 this.showStatus(response.error || '登录失败');

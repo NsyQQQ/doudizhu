@@ -23,6 +23,8 @@ export declare class WebSocketHandler {
     private handleQuickMatch;
     /** 处理再来一局（房间内重置游戏） */
     private handleRoomRestart;
+    /** 获取房间列表 */
+    private handleRoomList;
     /** 开始游戏 */
     private handleStartGame;
     /** 处理出牌 */

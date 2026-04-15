@@ -8,7 +8,7 @@ import { CardView } from './CardView';
 import { CardPatternRecognizer } from '../core/CardPattern';
 import { CardPatternRecognizer2, CardPatternType2 } from '../core/CardPattern2';
 import { EventBus, GameEvents } from '../shared/EventBus';
-import { CURRENT_PLAYER_INDEX, CURRENT_ROOM_TYPE, ROOM_PLAYER_COUNTS } from '../shared/Constants';
+import { CURRENT_PLAYER_INDEX, CURRENT_ROOM_TYPE, getPlayerCountByRoomType } from '../shared/Constants';
 
 const { ccclass, property } = _decorator;
 
@@ -136,7 +136,7 @@ export class PlayedCardsView extends Component {
 
         // 3人场：只有 bottom(0), left(1), right(5) 三个区域有UI
         // 玩家2(offset=2)应该显示在rightArea
-        const playerCount = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
+        const playerCount = getPlayerCountByRoomType(CURRENT_ROOM_TYPE);
         if (playerCount === 3 && offset === 2) {
             return this.rightArea;
         }
@@ -184,7 +184,7 @@ export class PlayedCardsView extends Component {
         const offset = (playerId - CURRENT_PLAYER_INDEX + 6) % 6;
 
         // 3人场：玩家2(offset=2)应该显示在rightLabel
-        const playerCount = ROOM_PLAYER_COUNTS[CURRENT_ROOM_TYPE] || 3;
+        const playerCount = getPlayerCountByRoomType(CURRENT_ROOM_TYPE);
         if (playerCount === 3 && offset === 2) {
             return this.rightLabel;
         }

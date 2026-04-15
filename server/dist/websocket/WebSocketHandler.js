@@ -38,6 +38,7 @@ const ws_1 = __importStar(require("ws"));
 const GameRoomManager_1 = require("../game/GameRoomManager");
 const GameRoom_1 = require("../game/GameRoom");
 const UserService_1 = require("../services/UserService");
+const RoomService_1 = require("../services/RoomService");
 class WebSocketHandler {
     constructor() {
         this.wss = null;
@@ -104,6 +105,9 @@ class WebSocketHandler {
             case 'room/quick_match':
                 await this.handleQuickMatch(ws, client, message.data);
                 break;
+            case 'room/list':
+                await this.handleRoomList(ws, client);
+                break;
             case 'game/start':
                 await this.handleStartGame(ws, client);
                 break;
@@ -139,8 +143,9 @@ class WebSocketHandler {
     async handleCreateRoom(ws, client, data) {
         try {
             const userId = data.userId;
-            const roomType = data.roomType || 5; // 默认5（6人斗地主）
-            console.log(`[handleCreateRoom] received data.roomType=${data.roomType}, using roomType=${roomType}`);
+            const roomType = data.roomType || 1;
+            const gameType = data.gameType || 1;
+            console.log(`[handleCreateRoom] received gameType=${gameType}, data.roomType=${data.roomType}, using roomType=${roomType}`);
             // 尝试获取用户信息，如果不存在则创建一个测试用户
             let user = await UserService_1.userService.findById(userId);
             if (!user) {
@@ -161,7 +166,7 @@ class WebSocketHandler {
                 isHost: true,
                 isAI: false,
                 isHiddenLandlord: false
-            }, roomType);
+            }, roomType, gameType);
             client.roomCode = room.roomCode;
             client.playerIndex = 0; // 房主是位置0
             client.userId = userId; // 设置用户ID
@@ -196,17 +201,13 @@ class WebSocketHandler {
     /** 加入房间 */
     async handleJoinRoom(ws, client, data) {
         try {
-            const { roomCode, roomType, userId } = data;
+            const { roomCode, userId } = data;
             const room = this.gameRooms.findByRoomCode(roomCode);
             if (!room) {
                 this.send(ws, { type: 'room/join', data: { success: false, error: '房间不存在' } });
                 return;
             }
-            // 检查房间类型是否匹配
-            if (room.roomType !== roomType) {
-                this.send(ws, { type: 'room/join', data: { success: false, error: '房间类型不匹配' } });
-                return;
-            }
+            // 检查房间是否在等待状态
             if (room.getStatus() !== 'waiting') {
                 this.send(ws, { type: 'room/join', data: { success: false, error: '房间已开始游戏' } });
                 return;
@@ -379,8 +380,9 @@ class WebSocketHandler {
     /** 快速匹配 - 创建房间并自动添加AI后开始游戏 */
     async handleQuickMatch(ws, client, data) {
         const userId = data?.userId ?? client.userId;
-        const roomType = data?.roomType ?? 5;
-        console.log(`[handleQuickMatch] received roomType=${data?.roomType}, using roomType=${roomType}, client.roomCode=${client.roomCode}`);
+        const roomType = data?.roomType ?? 1;
+        const gameType = data?.gameType ?? 1;
+        console.log(`[handleQuickMatch] received gameType=${gameType}, roomType=${roomType}, client.roomCode=${client.roomCode}`);
         // 检查玩家是否已在其他房间中，如果有则先离开
         const existingRoomByPlayer = this.gameRooms.getPlayerRoom(userId);
         if (existingRoomByPlayer) {
@@ -458,7 +460,7 @@ class WebSocketHandler {
             isHost: true,
             isAI: false,
             isHiddenLandlord: false
-        }, roomType);
+        }, roomType, gameType);
         client.roomCode = room.roomCode;
         client.playerIndex = 0;
         client.userId = userId;
@@ -590,6 +592,75 @@ class WebSocketHandler {
                 }
             }
         }
+    }
+    /** 获取房间列表 */
+    async handleRoomList(ws, client) {
+        // 游戏类型名称映射
+        const gameTypeNames = {
+            1: '斗地主',
+            2: '扔炸弹',
+            3: '跑得快',
+            4: '斗牛',
+            5: '510K',
+            6: '二百四',
+        };
+        // 房间类型名称映射
+        const roomTypeNames = {
+            1: '三人场',
+            2: '四人场',
+            3: '四人场',
+            4: '六人场',
+            5: '七人场',
+        };
+        // 获取内存中的房间（实时状态）
+        const memoryRooms = this.gameRooms.getAllRooms();
+        const memoryRoomsMap = new Map(memoryRooms.map(r => [r.roomCode, r]));
+        // 从数据库获取所有房间，按创建时间倒序（最新在前）
+        let dbRooms = [];
+        try {
+            dbRooms = await RoomService_1.roomService.getAllRooms();
+            // 按创建时间倒序排列，最新的在前面
+            dbRooms.sort((a, b) => {
+                const timeA = new Date(a.create_time).getTime();
+                const timeB = new Date(b.create_time).getTime();
+                return timeB - timeA;
+            });
+        }
+        catch (error) {
+            console.error('[handleRoomList] failed to get rooms from DB:', error);
+        }
+        // 合并数据库和内存中的房间数据
+        const roomList = dbRooms.map(dbRoom => {
+            const memoryRoom = memoryRoomsMap.get(dbRoom.room_code);
+            const roomType = memoryRoom?.roomType || dbRoom.type || 1;
+            if (memoryRoom) {
+                // 内存中有该房间，使用内存中的实时状态
+                return {
+                    roomCode: memoryRoom.roomCode,
+                    gameType: memoryRoom.gameType,
+                    gameTypeName: gameTypeNames[memoryRoom.gameType] || `玩法${memoryRoom.gameType}`,
+                    roomType,
+                    roomTypeName: roomTypeNames[roomType] || `房间类型${roomType}`,
+                    status: memoryRoom.getStatus(),
+                    playerCount: memoryRoom.getPlayerCount(),
+                    maxPlayers: (0, GameRoom_1.getPlayerCountByRoomType)(roomType),
+                };
+            }
+            else {
+                // 内存中没有（可能已销毁），使用数据库中的静态数据
+                return {
+                    roomCode: dbRoom.room_code,
+                    gameType: dbRoom.game_type || 1,
+                    gameTypeName: gameTypeNames[dbRoom.game_type] || `玩法${dbRoom.game_type}`,
+                    roomType,
+                    roomTypeName: roomTypeNames[roomType] || `房间类型${roomType}`,
+                    status: dbRoom.status || 'waiting',
+                    playerCount: (dbRoom.players || []).filter((p) => !p.isEmpty).length,
+                    maxPlayers: (0, GameRoom_1.getPlayerCountByRoomType)(roomType),
+                };
+            }
+        });
+        this.send(ws, { type: 'room/list', data: { success: true, rooms: roomList } });
     }
     /** 开始游戏 */
     async handleStartGame(ws, client) {
@@ -736,7 +807,6 @@ class WebSocketHandler {
         }
         // hands 是 Hand[] 数组，每个 Hand 有一个 cards 属性
         const hands = room.hands;
-        console.log(`[handleGameReady] hands check:`, hands, 'length:', hands?.length, 'hand[0].cards:', hands?.[0]?.cards?.length);
         if (hands && hands.length > 0 && hands[0]?.cards?.length > 0) {
             const landlordId = room.landlordId;
             const hiddenLandlordIds = room.hiddenLandlordIds;
